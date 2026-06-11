@@ -122,10 +122,8 @@ core; fix `QAAS_DOCS_URL` when convenient.)
 ## Notes
 
 - **One env var only.** `QAAS_DOCS_URL` is the single knob. Everything else is bundled.
-- **No PowerShell for end users.** The PowerShell under `platform/` and `eval/` is the
-  *maintainer* evaluation harness (how this plugin was tested against 57 scenarios with weak
-  models + strong evaluators). End users never run it. See [`platform/README` context in
-  AIRGAP.md](./AIRGAP.md).
+- **No PowerShell, no scripts.** The plugin is pure data — skills, commands, agents, and the
+  Fact Base. Nothing to execute at install time.
 - **Docs over curl, never WebFetch.** `/qaas:docs` shells out to `curl -fsSL`, so it works
   behind corporate proxies and on airgapped LANs with an internal mirror.
 - **NuGet / Docker / model endpoints** are environment concerns, not plugin concerns — see

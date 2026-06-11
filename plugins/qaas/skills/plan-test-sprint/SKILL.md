@@ -2,7 +2,7 @@
 name: plan-test-sprint
 version: 1.0.0
 description: Decompose a user testing goal into a validated sprint.json with priority-ordered, mechanically-verifiable tasks.
-when_to_use: User describes a system to test (e.g. "test service X consuming from RabbitMQ exchange A and calling REST API B"); produce sprint.json for the harness loop.
+when_to_use: User describes a system to test (e.g. "test service X consuming from RabbitMQ exchange A and calling REST API B"); produce sprint.json for the verification loop.
 inputs:
   - user_goal: one-sentence description of what must be tested
   - protocols: list of protocols involved (HTTP, RabbitMQ, Kafka, etc.)
@@ -20,7 +20,7 @@ contract:
     - 'MOCK_REQUIRED: yes/no declared before tasks; no mocker tasks when no'
   failure_modes:
     - 'Task description is a file reference, not self-contained text (PROTOCOL §3)'
-    - 'verify[] entries missing expectExitCode AND expectOutputContains — harness cannot gate'
+    - 'verify[] entries missing expectExitCode AND expectOutputContains — the verify runner cannot gate'
     - 'Priority inversion: T-003 at priority 2 depends on T-004 at priority 3'
     - 'goalOneSentence is multiple sentences'
     - 'failureModes do not cite FB s13 rows'
@@ -29,8 +29,8 @@ contract:
 
 ## When to use
 
-Call this skill when a user provides a testing goal and you must produce a `sprint.json` for
-`loop.ps1`. This skill **only plans** — no code/YAML is written here.
+Call this skill when a user provides a testing goal and you must produce a `sprint.json`
+execution plan. This skill **only plans** — no code/YAML is written here.
 Emit `NEEDS_CLARIFICATION: goal is ambiguous` if the goal cannot be stated in one sentence.
 
 ## Steps
@@ -108,7 +108,7 @@ Every task MUST have: `id`, `title` (gerund, ≤8 words), `priority`, `dependsOn
 
 ## Traps
 
-- **Priority inversion** — harness deadlocks if a task depends on one with higher priority number
+- **Priority inversion** — the verification loop deadlocks if a task depends on one with higher priority number
 - **description references another task** — generator context is isolated; must be self-contained
 - **verify[] prose only** — must have `cmd` + mechanical expectation
 - **goal is two sentences** — rewrite with semicolon or demote second part to `nonGoals`

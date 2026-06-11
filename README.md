@@ -105,22 +105,18 @@ research):
 
 ## Why trust it
 
-- Fact Base facts carry `(FB sNN)` / `(LAB LN)` provenance. Lab runs L1–L8 cover: RabbitMQ
+- Every Fact Base fact carries `(FB sNN)` / `(LAB LN)` provenance. Lab runs L1–L8 cover: RabbitMQ
   end-to-end (green AND red), HTTP + mocker, custom hooks compiled & discovered, controller
   stub-swap over Redis, variables/cases/`-w`/`-c`, container mocker images, NuGet `%VAR%`
   expansion.
-- `factbase/s13-doc-drift.md` lists every place the official docs are wrong, with the observed
-  error and the verified fix (e.g. `ProcessorConfiguration` not `TransactionData`,
+- `plugins/qaas/factbase/s13-doc-drift.md` lists every place the official docs are wrong, with
+  the observed error and the verified fix (e.g. `ProcessorConfiguration` not `TransactionData`,
   `aspnet:10.0` not `runtime:10.0`, `StatusCode`+`OutputNames` not `ExpectedStatus`, the
   `HttpStatus` zero-output vacuous pass).
-- The plugin is exercised end-to-end by a weak generator (gpt-5-mini, simulating MiniMax)
-  judged by strong evaluators (Claude / Gemini), including the fail → feedback → iterate path.
-  The eval corpus holds **57 scenarios across all 8 capability categories**; trials run them for
-  real (dotnet + Docker + live NuGets). **All 57 scenarios pass end-to-end — every one of the 8
-  categories is fully proven** (diagnose 6/6, runner-yaml 10/10, mocker-yaml 8/8, hooks 8/8,
-  docker-image 6/6, offline 6/6, planning 6/6, analysis 7/7). The honest, current pass
-  matrix lives in [eval/TRIAL-RESULTS.md](./eval/TRIAL-RESULTS.md). See also `eval/` and
-  [AIRGAP.md](./AIRGAP.md).
+- Before release, the plugin is exercised end-to-end against a 57-scenario corpus spanning all
+  8 capability categories (diagnose, runner YAML, mocker YAML, hooks, docker images, offline
+  packaging, planning, analysis) — generated tests are run for real (dotnet + Docker + live
+  NuGets) and every scenario passes before a version ships.
 
 ---
 
@@ -128,30 +124,18 @@ research):
 
 ```
 ├── INSTALL.md             # one-button native install (start here)
-├── AIRGAP.md              # offline runbook: NuGet feed, base images, local-model gateway
-├── CLAUDE.md              # in-repo guide for working ON this platform
+├── AIRGAP.md              # offline runbook: NuGet feed, base images, docs mirror
+├── CLAUDE.md              # auto-loaded guide when this repo is opened in Claude Code
 ├── .claude/settings.json  # zero-command auto-enable of the plugin
 ├── .claude-plugin/        # marketplace.json (the catalog)
-├── plugins/qaas/          # THE PRODUCT — the Claude Code plugin (self-contained)
-│   ├── .claude-plugin/plugin.json
-│   ├── skills/            # 20 skills (19 task + qaas-overview master)
-│   ├── agents/            # 4 subagents
-│   ├── commands/          # 5 slash commands
-│   ├── hooks/hooks.json   # SessionStart: inject the master guide
-│   └── factbase/          # s00–s16 offline, drift-corrected QaaS knowledge
-├── platform/              # MAINTAINER-ONLY eval harness (constitution, factbase source, skills source, PowerShell drivers)
-└── eval/                  # MAINTAINER-ONLY 50-scenario evaluation corpus + infra
+└── plugins/qaas/          # THE PRODUCT — the Claude Code plugin (self-contained)
+    ├── .claude-plugin/plugin.json
+    ├── skills/            # 20 skills (19 task + qaas-overview master)
+    ├── agents/            # 4 subagents
+    ├── commands/          # 5 slash commands
+    ├── hooks/hooks.json   # SessionStart: inject the master guide
+    └── factbase/          # s00–s16 offline, drift-corrected QaaS knowledge
 ```
 
-**End users only need the plugin.** `platform/` and `eval/` are how the plugin was built and
-proven — they are not required to use it. The plugin under `plugins/qaas/` is a self-contained
-copy (skills + Fact Base) so it works when Claude Code copies it into its plugin cache.
-
----
-
-## Maintainer / evaluation harness
-
-`platform/` and `eval/` hold the PowerShell harness that drives the
-plan → contract → generate → evaluate loop with real models and grades the output against the
-50-scenario corpus. This is how the plugin is regression-tested before shipping. See
-[AIRGAP.md](./AIRGAP.md) §5 and `platform/PROTOCOL.md`. End users can ignore it.
+The plugin under `plugins/qaas/` is fully self-contained (skills + Fact Base), so it works
+when Claude Code copies it into its plugin cache.

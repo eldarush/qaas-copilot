@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: order-enricher-config
-data:
-  PREFETCH_COUNT: "50"
-  BATCH_WINDOW_MS: "200"

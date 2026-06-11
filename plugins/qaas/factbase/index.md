@@ -1,6 +1,6 @@
 # Fact Base Index
 
-Chunked, LAB-verified QaaS knowledge. The harness injects only the slices a task needs.
+Chunked, LAB-verified QaaS knowledge. Load only the slices a task needs (e.g. via `/qaas:fact sNN`).
 
 | Slice | File | Size | Contents |
 |---|---|---|---|
