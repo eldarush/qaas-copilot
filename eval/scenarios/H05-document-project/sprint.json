@@ -1,0 +1,100 @@
+{
+  "sprintId": "H05",
+  "feature": "document-test-project",
+  "goalOneSentence": "Read the complete seeded payment QaaS test project (Runner + Mocker) and write a README.md documenting topology, test coverage, exact run commands, artifact paths, and troubleshooting rows citing FB s13 traps.",
+  "nonGoals": [
+    "running dotnet build or run",
+    "modifying any seeded files",
+    "writing new YAML or csproj"
+  ],
+  "factBaseSlices": ["s00", "s06", "s07", "s13", "s14"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Write README.md documenting the payment test project",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "document-test-project",
+      "files": {
+        "create": ["README.md"],
+        "edit": []
+      },
+      "description": "The working directory contains a complete seeded QaaS payment test project: Runner/ (Runner.csproj, Program.cs, payment.qaas.yaml testing GET payments/status on port 8090 with HttpStatus+HermeticByExpectedOutputCount assertions, TestData/status-request.json) and Mocker/ (Mocker.csproj, Program.cs, payment.mocker.yaml serving /payments/status → 200 {\"status\":\"SETTLED\"} on port 8090). Read all these files carefully. Write a README.md file at the working-directory root (NOT inside Runner/ or Mocker/) with EXACTLY these sections in order:\n\n**Section: `# Payment Status QaaS Tests`** — one-sentence description of what this project tests.\n\n**Section: `## Topology`** — include a Mermaid diagram (```mermaid ... ```) showing the flow: Runner → (HTTP GET payments/status) → Mocker. Label the Runner and Mocker nodes. The diagram must use Mermaid syntax (flowchart or sequenceDiagram).\n\n**Section: `## What is tested`** — Markdown table with columns: Session Name, Transaction Name, Route, Method, Assertions. Include one row for the PaymentStatusSession/CallPaymentStatus transaction. In the Assertions column, list both assertions: 'HttpStatus (200)' and 'HermeticByExpectedOutputCount (ExpectedCount=1)'. Add a brief rationale sentence below the table explaining WHY the HermeticByExpectedOutputCount guard is required: HttpStatus alone passes vacuously when zero outputs arrive — the hermetic guard ensures exactly one response was received, preventing false greens on connection failures (FB s13#12).\n\n**Section: `## How to run`** — Exact ordered numbered steps. Step 1: Start the mocker first — from the Mocker/ directory run: dotnet run -c Release -- run payment.mocker.yaml — wait for the boot log line 'HTTP Server started. Listening on http://0.0.0.0:8090'. Step 2: From the Runner/ directory run: dotnet run -c Release -- run payment.qaas.yaml (MUST cd into the project dir — config paths resolve against CWD). Step 3: Expected green evidence: log lines 'Finished running executions. Aggregated exit code: 0' and 'Runner completed. ExitCode=0', process exit code 0.\n\n**Section: `## Artifacts`** — Document the allure-results output paths: allure-results/*-result.json (one per assertion, status: passed), allure-results/SessionsData/<timestamp>/*.json (contains Outputs with Http StatusCode 200), allure-results/Templates/<timestamp>/template.yaml.\n\n**Section: `## Troubleshooting`** — Markdown table with at least 3 rows and columns: Symptom, Root Cause, Fix, FB Reference. Must include these rows: (1) Runner gets 404s / HttpStatus fails: route has leading slash in payment.qaas.yaml Route: /payments/status — the correct value is Route: payments/status (no leading slash) — FB s13#5; (2) Mocker stub returns wrong content / empty body: ProcessorConfiguration key was accidentally written as TransactionData — correct key is ProcessorConfiguration — FB s13#1; (3) HttpStatus assertion passes but no actual response was checked: HermeticByExpectedOutputCount guard is missing — add it with ExpectedCount: 1 to catch vacuous passes — FB s13#12.\n\nDo NOT modify any seeded files. Do NOT run any commands. Documentation only.",
+      "acceptanceCriteria": [
+        "README.md exists at working-directory root",
+        "Contains a Mermaid diagram in the Topology section",
+        "HermeticByExpectedOutputCount listed in the What is tested table with rationale",
+        "How to run section has mocker started first with exact command",
+        "ExitCode=0 mentioned as expected green evidence",
+        "Troubleshooting table has at least 3 rows citing FB s13 traps",
+        "All 6 required section headings present"
+      ],
+      "factBaseSlices": ["s00", "s06", "s07", "s13", "s14"],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Test-Path README.md",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path README.md -Pattern 'mermaid' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path README.md -Pattern 'payment\\.mocker\\.yaml' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path README.md -Pattern 'ExitCode=0' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path README.md -Pattern 'HermeticByExpectedOutputCount' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path README.md -Pattern 's13' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path README.md -Pattern '## Topology' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path README.md -Pattern '## How to run' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path README.md -Pattern '## Troubleshooting' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "rubric": [
+        "All 6 required sections present with correct headings",
+        "Mermaid diagram correctly shows Runner → Mocker flow",
+        "HermeticByExpectedOutputCount documented with rationale citing FB s13#12",
+        "How to run states mocker-first ordering with exact commands",
+        "Troubleshooting cites at least s13#5, s13#1, s13#12"
+      ],
+      "failureModes": [
+        "Missing Mermaid topology diagram",
+        "Omitting HermeticByExpectedOutputCount from the test table",
+        "How to run missing mocker-first ordering",
+        "ExitCode=0 not mentioned as success evidence",
+        "Troubleshooting section missing or not citing FB s13"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

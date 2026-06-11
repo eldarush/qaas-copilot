@@ -1,0 +1,170 @@
+{
+  "tasks": [
+    {
+      "dependsOn": [],
+      "id": "T-001",
+      "notes": "",
+      "factBaseSlices": [
+        "s01",
+        "s13"
+      ],
+      "files": {
+        "create": [
+          "Runner/Runner.csproj",
+          "Runner/Program.cs",
+          "Mocker/Mocker.csproj",
+          "Mocker/Program.cs"
+        ],
+        "edit": []
+      },
+      "title": "Scaffold runner and mocker projects",
+      "skill": "scaffold-runner-project",
+      "docPages": [],
+      "description": "Create two .NET 10 console projects: Runner/Runner.csproj and Mocker/Mocker.csproj. Program.cs has exact one-liner QaaS.Runner.Bootstrap.New(args).Run(); and QaaS.Mocker.Bootstrap.New(args).Run(); respectively. Both csproj must reference proper NuGet packages.",
+      "priority": 1,
+      "rubric": [
+        "Structure matches golden shape"
+      ],
+      "verify": [
+        {
+          "cmd": "dotnet build -c Release",
+          "expectExitCode": 0,
+          "cwd": "Runner",
+          "timeoutSec": 600
+        },
+        {
+          "cmd": "dotnet build -c Release",
+          "expectExitCode": 0,
+          "cwd": "Mocker",
+          "timeoutSec": 600
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "dotnet build exits 0"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Missing copy-to-output flags"
+      ]
+    },
+    {
+      "dependsOn": [
+        "T-001"
+      ],
+      "id": "T-002",
+      "notes": "",
+      "factBaseSlices": [
+        "s02",
+        "s03",
+        "s13",
+        "s14"
+      ],
+      "files": {
+        "create": [
+          "Runner/payment.qaas.yaml",
+          "Mocker/payment.mocker.yaml",
+          "Runner/TestData/data.json"
+        ],
+        "edit": []
+      },
+      "title": "Author runner YAML, mocker YAML, and test data",
+      "skill": "author-runner-yaml",
+      "docPages": [],
+      "description": "Author the runner YAML, mocker YAML, and test data. Match golden shapes. Route has NO leading slash; mocker Path KEEPS leading slash. Use ExpectedCount.",
+      "priority": 2,
+      "rubric": [
+        "YAML matches golden shape exactly"
+      ],
+      "verify": [
+        {
+          "cmd": "dotnet run -c Release -- template payment.qaas.yaml",
+          "expectExitCode": 0,
+          "expectOutputNotContains": "not found in",
+          "cwd": "Runner",
+          "timeoutSec": 300
+        },
+        {
+          "cmd": "dotnet run -c Release -- template payment.mocker.yaml",
+          "expectExitCode": 0,
+          "expectOutputNotContains": "not found in",
+          "cwd": "Mocker",
+          "timeoutSec": 300
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "Template verification passes"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Missing hermetic guard"
+      ]
+    },
+    {
+      "dependsOn": [
+        "T-002"
+      ],
+      "id": "T-003",
+      "notes": "",
+      "factBaseSlices": [
+        "s06",
+        "s07",
+        "s13"
+      ],
+      "files": {
+        "create": [
+          "Runner/RUN-REPORT.md"
+        ],
+        "edit": []
+      },
+      "title": "Run end-to-end and report",
+      "skill": "run-and-collect",
+      "docPages": [],
+      "description": "Write Runner/RUN-REPORT.md documenting mocker-first ordering, CWD rule, exact commands, expected log lines, artifact paths, and failure triage procedures. Make sure to describe the exact commands used, the folder contexts, and cite relevant factbase rows like s06 or s13 to ensure total documentation integrity.",
+      "priority": 3,
+      "rubric": [
+        "RUN-REPORT contains expected boot-lines and paths"
+      ],
+      "verify": [
+        {
+          "timeoutSec": 600,
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','payment.mocker.yaml' -WorkingDirectory '..\\\\Mocker' -PassThru; $ok = $false; foreach ($i in 1..40) { try { (New-Object Net.Sockets.TcpClient('127.0.0.1', 8099)).Close(); $ok = $true; break } catch { Start-Sleep 2 } }; if (-not $ok) { Stop-Process -Id $m.Id -Force; exit 9 }; dotnet run -c Release -- run payment.qaas.yaml; $code = $LASTEXITCODE; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "expectExitCode": 0,
+          "cwd": "Runner",
+          "expectOutputContains": "ExitCode=0"
+        },
+        {
+          "timeoutSec": 60,
+          "cmd": "Test-Path RUN-REPORT.md",
+          "cwd": "Runner",
+          "expectOutputContains": "True"
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "End-to-end run succeeds"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Running from wrong CWD"
+      ]
+    }
+  ],
+  "sprintId": "A07",
+  "factBaseSlices": [
+    "s01",
+    "s02",
+    "s03",
+    "s06",
+    "s13",
+    "s14"
+  ],
+  "goalOneSentence": "Verify e2e functionality of staged-controller-failover on PSP failover: stage1 200, stage2 ChangeActionStub->503, stage3 assert degraded.",
+  "nonGoals": [
+    "auth",
+    "stretching scope"
+  ],
+  "feature": "staged-controller-failover",
+  "portContract": "This sprint's mocker(s) MUST listen on HTTP port 8099. Every runner Transaction MUST target http://127.0.0.1:8099 (set the mocker server Port: 8099 and the runner BaseAddress/Port to 8099). Do NOT use the 8080 default from Fact Base examples - use 8099 exactly, or the live end-to-end run cannot connect."
+}

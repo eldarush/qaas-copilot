@@ -1,0 +1,42 @@
+{
+  "sprintId": "G01",
+  "feature": "Plan an HTTP smoke-test sprint",
+  "goalOneSentence": "Produce a valid sprint.json that plans an HTTP smoke test for the internal quotes service (GET /quotes/latest must return 200 hermetically against a local mocker on port 8095).",
+  "nonGoals": ["writing any YAML or C#", "running tests"],
+  "factBaseSlices": ["s00", "s01", "s02", "s06", "s13", "s14"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Plan the quotes-service smoke-test sprint",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "plan-test-sprint",
+      "files": { "create": ["planned/sprint.json"], "edit": [] },
+      "description": "USER GOAL: 'We have an internal quotes service. I want a QaaS smoke test that proves GET /quotes/latest returns HTTP 200 with exactly one response per request (hermetic), using a local static mocker on port 8095. Team name Quotes, system name QuoteHub.' YOUR JOB: apply the plan-test-sprint skill to emit planned/sprint.json (and nothing else) planning this work for a later generator. Requirements: exactly 3 tasks in canonical order (FB: scaffold priority 1 -> author YAML priority 2 -> run e2e priority 3) with dependsOn chaining; every task description fully self-contained (>=150 chars, no 'see other task' references) naming exact files, exact YAML/csproj fields, and FB s13 trap citations (at minimum s13#1 ProcessorConfiguration, s13#3 DataSourceNames, s13#5 Route slash, s13#12 ExpectedCount, s13#13 vacuous-pass guard in the relevant tasks); every task has verify[] entries with cmd plus expectExitCode or expectOutputContains (use dotnet build, dotnet run -- template, dotnet run -- run with port 8095); every task has acceptanceCriteria, rubric, failureModes, passes false, iterations 0. The sprintId must be QH1, feature and goalOneSentence must describe the quotes smoke test in one sentence.",
+      "acceptanceCriteria": [
+        "planned/sprint.json parses as JSON and passes the structural validator",
+        "3 tasks, canonical priority order, no inversion",
+        "failureModes cite FB s13 rows"
+      ],
+      "factBaseSlices": ["s00", "s01", "s02", "s06", "s13", "s14"],
+      "docPages": [],
+      "verify": [
+        { "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\..\\..\\..\\eval\\infra\\validate-sprint.ps1 -Path planned\\sprint.json", "expectExitCode": 0, "expectOutputContains": "SPRINT_VALID", "timeoutSec": 120 },
+        { "cmd": "Select-String -Path planned\\sprint.json -Pattern 's13#' -Quiet", "expectOutputContains": "True", "timeoutSec": 60 }
+      ],
+      "rubric": [
+        "Descriptions would let a generator work without any other context",
+        "verify[] commands are real and runnable (no pseudo-commands)",
+        "Trap coverage: the five core s13 rows appear in the right tasks"
+      ],
+      "failureModes": [
+        "verify[] prose without mechanical expectation (PROTOCOL §3)",
+        "Task description references another task (context isolation violation)",
+        "Priority inversion between dependent tasks"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

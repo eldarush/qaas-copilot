@@ -1,0 +1,120 @@
+{
+  "sprintId": "H01",
+  "feature": "analyze-sut-http",
+  "goalOneSentence": "Read the seeded InventoryApi ASP.NET minimal-API source and produce a structured test-readiness profile covering all HTTP surfaces with file:line citations, plus a QUESTIONS.md with residual reachability unknowns.",
+  "nonGoals": [
+    "writing any YAML",
+    "writing any csproj",
+    "running dotnet build or run",
+    "installing NuGet packages"
+  ],
+  "factBaseSlices": ["s00", "s01", "s13"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Analyze InventoryApi source and write sut-profile.md",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "analyze-sut-repo",
+      "files": {
+        "create": ["qaas-analysis/sut-profile.md"],
+        "edit": []
+      },
+      "description": "The working directory contains a seeded SUT at sut/InventoryApi/. Read every file in that folder carefully before writing anything. Write qaas-analysis/sut-profile.md with ALL of the following sections:\n\n**Section 1 — Protocols & Surfaces** (required Markdown table with columns: Surface, Method, Route, Request DTO, Response, Citation). List ALL THREE endpoints found in sut/InventoryApi/Program.cs: (a) GET /inventory/items — returns list of all items, no request body; (b) GET /inventory/items/{id} — path parameter id (string), returns single InventoryItem or 404 JSON; (c) POST /inventory/reserve — request body is ReserveRequest record (ItemId: string, Quantity: int) defined in sut/InventoryApi/Models/ReserveRequest.cs, returns { reserved, remaining } or 404/400 JSON. Every table row MUST include a file:line citation — write the actual line number where app.MapGet or app.MapPost appears in Program.cs.\n\n**Section 2 — Configuration** (required Markdown table with columns: EnvVar, Default, Source Citation). Must include at minimum: INVENTORY_PORT with default value 8085, citing Program.cs at the line where Environment.GetEnvironmentVariable('INVENTORY_PORT') appears.\n\n**Section 3 — Test-Relevant Behaviors**. Free-form bullet list: describe the in-memory inventory store (no database persistence, store resets on restart), the POST /inventory/reserve state-mutation behavior (order of tests matters), the 404/400 error paths, and explicitly state that the SUT has NO downstream dependencies (no database connection, no message broker) — therefore MOCK_REQUIRED: NO — the QaaS runner can call this SUT directly without a mocker.\n\n**Section 4 — Open Questions**. Bullet list of at least 2 items that the source code CANNOT answer: where is the SUT deployed during tests? what value will INVENTORY_PORT be set to in the test environment?\n\nDo NOT produce any YAML, csproj, or code files. Analysis markdown only.",
+      "acceptanceCriteria": [
+        "qaas-analysis/sut-profile.md exists",
+        "All 3 endpoints listed: /inventory/items, /inventory/items/{id}, /inventory/reserve",
+        "INVENTORY_PORT with default 8085 present in Configuration table",
+        "Every endpoint row cites Program.cs with a line number",
+        "States MOCK_REQUIRED: NO or equivalent"
+      ],
+      "factBaseSlices": ["s00", "s01", "s13"],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Test-Path qaas-analysis\\sut-profile.md",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'inventory/reserve' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'INVENTORY_PORT' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'Program\\.cs' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "rubric": [
+        "All 3 HTTP surfaces listed with correct methods and routes",
+        "INVENTORY_PORT with default 8085 in Configuration table",
+        "Every endpoint row carries a file:line citation referencing Program.cs",
+        "MOCK_REQUIRED: NO stated (SUT has no downstream deps)",
+        "No invented endpoints, env vars, or downstream dependencies"
+      ],
+      "failureModes": [
+        "Omitting POST /inventory/reserve from the surfaces table",
+        "Missing file:line citations — citations are mandatory per the description",
+        "Fabricating a downstream database or message broker dependency",
+        "Claiming a mocker is required when the SUT has no downstream services"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-002",
+      "title": "Write reachability and environment QUESTIONS.md",
+      "priority": 2,
+      "dependsOn": ["T-001"],
+      "expectsClarification": true,
+      "skill": "analyze-sut-repo",
+      "files": {
+        "create": ["qaas-analysis/QUESTIONS.md"],
+        "edit": []
+      },
+      "description": "Several facts about running the InventoryApi SUT in a test environment cannot be determined from source code alone. Write qaas-analysis/QUESTIONS.md containing AT LEAST 3 numbered, machine-usable questions. Required questions (paraphrase as needed): (1) Where will the InventoryApi SUT be running during test execution — is it started manually before the runner, started by CI, or does the QaaS runner launch it via a hook? (2) What value will INVENTORY_PORT be set to in the test environment — is the default 8085 acceptable, or is a different port assigned? (3) Are the in-memory inventory items (ITM-001, ITM-002, ITM-003) freshly initialized per test run, or must tests pre-seed data via a fixture mechanism? You may add additional questions about expected response fixtures, TLS, or environment isolation. IMPORTANT CONSTRAINTS: Do NOT re-ask what the code already answers — do NOT ask 'what endpoints does the SUT expose?' (answered in Program.cs), do NOT ask 'what is the default port in the code?' (answered by INVENTORY_PORT default '8085' in Program.cs). End your response status line with NEEDS_CLARIFICATION.",
+      "acceptanceCriteria": [
+        "qaas-analysis/QUESTIONS.md exists",
+        "Contains at least 3 numbered questions",
+        "Questions cover residual unknowns: deployment location, port assignment, fixture/data setup",
+        "Does NOT ask about endpoints already documented in the source",
+        "Response ends with NEEDS_CLARIFICATION"
+      ],
+      "factBaseSlices": ["s00", "s01", "s13"],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Test-Path qaas-analysis\\QUESTIONS.md",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "$q = Get-Content qaas-analysis\\QUESTIONS.md -Raw; $n = ([regex]::Matches($q, '\\?')).Count; if ($n -ge 3) { Write-Output 'True' } else { Write-Output \"FAIL: only $n question marks\" }",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "rubric": [
+        "All questions are residual — not answerable from the seeded source code",
+        "Questions are specific and machine-usable (not vague filler)",
+        "No question re-asks endpoint names, port defaults, or DTO shapes already in the code"
+      ],
+      "failureModes": [
+        "Asking 'what endpoints exist?' — already documented in Program.cs",
+        "Asking 'what is the default port?' — answered in Program.cs (INVENTORY_PORT default '8085')",
+        "Fewer than 3 actual questions (question marks in the file)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

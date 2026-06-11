@@ -1,0 +1,41 @@
+MetaData:
+  Team: Inventory
+  System: Inventory-Test
+
+Storages:
+  - FileSystem:
+      Path: ./session-data
+
+DataSources:
+  - Name: ItemsRequests
+    Generator: FromFileSystem
+    GeneratorConfiguration:
+      DataArrangeOrder: AsciiAsc
+      FileSystem:
+        Path: TestData
+
+Sessions:
+  - Name: InventoryItemsSession
+    Transactions:
+      - Name: ListAllItems
+        TimeoutMs: 10000
+        DataSourceNames:
+          - ItemsRequests
+        Http:
+          BaseAddress: http://127.0.0.1
+          Port: 8085
+          Route: inventory/items
+          Method: Get
+    Assertions:
+      - Assertion: HttpStatus
+        Name: StatusIs200
+        AssertionConfiguration:
+          StatusCode: 200
+          OutputNames:
+            - ListAllItems
+      - Assertion: HermeticByExpectedOutputCount
+        Name: ExactlyOneResponse
+        AssertionConfiguration:
+          OutputNames:
+            - ListAllItems
+          ExpectedCount: 1

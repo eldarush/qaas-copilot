@@ -1,0 +1,21 @@
+MetaData:
+  Team: QA
+  System: DiagnoseSystem
+Storages:
+  - FileSystem: { Path: ./session-data }
+DataSources:
+  - Name: DummyDS
+    Generator: FromFileSystem
+    GeneratorConfiguration: { DataArrangeOrder: AsciiAsc, FileSystem: { Path: TestData } }
+Sessions:
+  - Name: Session1
+    Transactions:
+      - Name: Trans1
+        TimeoutMs: 5000
+        Http: { BaseAddress: http://127.0.0.1, Port: 8122, Route: testroute, Method: Get }
+        DataSourceNames: [DummyDS]
+Assertions:
+  - Name: AssertOK
+    Assertion: HttpStatus
+    SessionNames: [Session1]
+    AssertionConfiguration: { StatusCode: 200, OutputNames: [Trans1] }

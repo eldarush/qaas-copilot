@@ -1,0 +1,60 @@
+{
+    "tasks":  [
+                  {
+                      "dependsOn":  [
+
+                                    ],
+                      "id":  "T-001",
+                      "notes":  "",
+                      "factBaseSlices":  [
+                                             "s08",
+                                             "s13"
+                                         ],
+                      "files":  {
+                                    "create":  [
+                                                   "NuGet.config",
+                                                   "AIRGAP.md"
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "title":  "Configure airgap/offline operational steps",
+                      "skill":  "offline-packaging",
+                      "docPages":  [
+
+                                   ],
+                      "description":  "Document or configure offline behavior of QaaS. NuGet.config must use \u003cclear /\u003e to isolate and point to local/env sources only. Make sure to cover set-var, restore commands, success output logs, and potential NU1301 failure signatures in AIRGAP.md.",
+                      "priority":  1,
+                      "rubric":  [
+                                     "Isolates nuget.org feed"
+                                 ],
+                      "verify":  [
+                                     {
+                                         "timeoutSec":  60,
+                                         "cmd":  "Select-String -Path NuGet.config -Pattern \u0027\u003cclear /\u003e\u0027 -Quiet",
+                                         "expectOutputContains":  "True"
+                                     }
+                                 ],
+                      "iterations":  0,
+                      "acceptanceCriteria":  [
+                                                 "NuGet.config contains \u003cclear /\u003e",
+                                                 "AIRGAP.md details offline restore procedures"
+                                             ],
+                      "passes":  false,
+                      "failureModes":  [
+                                           "Forgetting \u003cclear /\u003e"
+                                       ]
+                  }
+              ],
+    "sprintId":  "F03",
+    "factBaseSlices":  [
+                           "s08",
+                           "s13"
+                       ],
+    "goalOneSentence":  "Isolate and package QaaS configuration for offline use.",
+    "nonGoals":  [
+                     "external connectivity"
+                 ],
+    "feature":  "template-install-local"
+}

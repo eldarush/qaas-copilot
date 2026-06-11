@@ -1,0 +1,74 @@
+{
+  "tasks": [
+    {
+      "dependsOn": [],
+      "id": "T-001",
+      "notes": "",
+      "factBaseSlices": [
+        "s06",
+        "s10",
+        "s13",
+        "s09"
+      ],
+      "files": {
+        "create": [
+          "DIAGNOSIS.md"
+        ],
+        "edit": [
+          "Runner/test.qaas.yaml"
+        ]
+      },
+      "title": "Diagnose, repair and verify the suite",
+      "skill": "diagnose-failure",
+      "docPages": [],
+      "description": "The suite has a HermeticByExpectedOutputCount guard that is NOT doing its job because of a wrong configuration key (trap s13#12: unknown keys inside an AssertionConfiguration are silently ignored - no error is raised). In Runner/test.qaas.yaml the guard uses 'ExpectedOutputCount: 1', but the real field name is 'ExpectedCount' (see Fact Base s09). Because 'ExpectedOutputCount' is silently ignored, the guard's expected count is never set and the guard does not actually enforce the output count. Apply the MINIMAL fix to Runner/test.qaas.yaml: rename the key 'ExpectedOutputCount' to 'ExpectedCount' (keep the value 1). Change NOTHING else (no route/port/stub/HttpStatus edits). Write DIAGNOSIS.md citing s13#12 explicitly, then run the e2e verify gate (must be green with the guard now enforcing exactly 1 output).",
+      "priority": 1,
+      "rubric": [
+        "Diagnosis identifies the silently-ignored wrong key and cites s13#12"
+      ],
+      "verify": [
+        {
+          "timeoutSec": 60,
+          "cmd": "Select-String -Path DIAGNOSIS.md -Pattern 's13#12' -Quiet",
+          "expectOutputContains": "True"
+        },
+        {
+          "timeoutSec": 60,
+          "cmd": "Select-String -Path Runner\\test.qaas.yaml -Pattern 'ExpectedCount:' -Quiet",
+          "expectOutputContains": "True"
+        },
+        {
+          "cwd": "Runner",
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','test.mocker.yaml' -WorkingDirectory '..\\Mocker' -PassThru; $ok = $false; foreach ($i in 1..40) { try { (New-Object Net.Sockets.TcpClient('127.0.0.1', 8123)).Close(); $ok = $true; break } catch { Start-Sleep 2 } }; if (-not $ok) { Stop-Process -Id $m.Id -Force; exit 9 }; dotnet run -c Release -- run test.qaas.yaml; $code = $LASTEXITCODE; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "DIAGNOSIS.md cites s13#12",
+        "Guard now uses ExpectedCount (the real field)",
+        "E2E runs green"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Leaving the wrong key in place",
+        "Rewriting the whole file or renaming identifiers"
+      ]
+    }
+  ],
+  "sprintId": "D06",
+  "factBaseSlices": [
+    "s06",
+    "s10",
+    "s13"
+  ],
+  "goalOneSentence": "Fix a silently-ignored wrong assertion key (ExpectedOutputCount -> ExpectedCount, trap s13#12).",
+  "nonGoals": [
+    "rewriting docker files",
+    "editing the mocker",
+    "changing the route or port"
+  ],
+  "feature": "wrong-config-key",
+  "portContract": "This sprint's mocker MUST listen on HTTP port 8123. Every runner Transaction MUST target http://127.0.0.1:8123. Do NOT use the 8080 default - use 8123 exactly."
+}

@@ -1,0 +1,74 @@
+﻿{
+    "tasks":  [
+                  {
+                      "dependsOn":  [
+
+                                    ],
+                      "id":  "T-001",
+                      "notes":  "",
+                      "factBaseSlices":  [
+                                             "s07",
+                                             "s12",
+                                             "s13"
+                                         ],
+                      "files":  {
+                                    "create":  [
+                                                   "Dockerfile",
+                                                   ".dockerignore",
+                                                   "BUILD.md"
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "title":  "Package mocker as docker image",
+                      "skill":  "build-mocker-image",
+                      "docPages":  [
+
+                                   ],
+                      "description":  "The working directory contains Hello/ - a complete, working QaaS mocker project (Hello.csproj referencing QaaS.Mocker + QaaS.Common.Processors Version=*; one-line Program.cs; hello.mocker.yaml serving GET /health -> 200 'ok' on Port 8080). Do NOT modify anything under Hello/. This image must select its mocker config file from an ENVIRONMENT VARIABLE at run time instead of hard-coding it. Create at the working-directory ROOT three files: (1) Dockerfile - multi-stage: stage 1 'FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build', WORKDIR /src, COPY . ., RUN dotnet restore Hello/Hello.csproj, RUN dotnet publish Hello/Hello.csproj -c Release -o /app/publish --no-restore; stage 2 'FROM mcr.microsoft.com/dotnet/aspnet:10.0' (CRITICAL: aspnet, NOT runtime, FB s13#7), WORKDIR /app, COPY --from=build /app/publish ., and the final ENTRYPOINT MUST be the shell form that execs the env var (FB s14#6 / build-mocker-image skill section 11): ENTRYPOINT [\"sh\", \"-c\", \"exec dotnet Hello.dll \\\"$QAAS_MOCKER_CONFIG\\\"\"]. This passes the value of QAAS_MOCKER_CONFIG as the mocker config argument. Keep every Dockerfile comment on its OWN line (FB s13#18). The container listens on 8080 INTERNALLY (do NOT change it). (2) .dockerignore with at least bin/, obj/, *.md. (3) BUILD.md documenting build 'docker build -t qaas-image-e05 .', run 'docker run -d --name qaas-test-E05 -p 8127:8080 -e QAAS_MOCKER_CONFIG=hello.mocker.yaml qaas-image-e05', smoke 'curl http://127.0.0.1:8127/health' expecting 'ok', cleanup 'docker rm -f qaas-test-E05'. The verify gate checks the Dockerfile references QAAS_MOCKER_CONFIG, builds the image, then runs it WITH -e QAAS_MOCKER_CONFIG=hello.mocker.yaml and curls host 8127.",
+                      "priority":  1,
+                      "rubric":  [
+                                     "Dockerfile uses correct multi-stage pattern"
+                                 ],
+                      "verify":  [
+                                     {
+                                         "timeoutSec":  60,
+                                         "cmd":  "Select-String -Path Dockerfile -Pattern 'QAAS_MOCKER_CONFIG' -Quiet",
+                                         "expectOutputContains":  "True"
+                                     },
+                                     {
+                                         "timeoutSec":  600,
+                                         "cmd":  "docker build -t qaas-image-e05 .",
+                                         "expectExitCode":  0
+                                     },
+                                     {
+                                         "timeoutSec":  300,
+                                         "cmd":  "docker rm -f qaas-test-E05 2>$null | Out-Null; docker run -d --name qaas-test-E05 -p 8127:8080 -e QAAS_MOCKER_CONFIG=hello.mocker.yaml qaas-image-e05 | Out-Null; $body=''; foreach($i in 1..20){ try { $body = (Invoke-WebRequest -Uri http://127.0.0.1:8127/health -UseBasicParsing -TimeoutSec 2).Content.Trim(); break } catch { Start-Sleep 1 } }; docker rm -f qaas-test-E05 | Out-Null; if($body -eq 'ok'){ exit 0 } else { exit 1 }",
+                                         "expectExitCode":  0
+                                     }
+                                 ],
+                      "iterations":  0,
+                      "acceptanceCriteria":  [
+                                                 "docker build succeeds",
+                                                 "aspnet:10.0 is used as the base image"
+                                             ],
+                      "passes":  false,
+                      "failureModes":  [
+                                           "Using runtime:10.0 which has no HTTP host"
+                                       ]
+                  }
+              ],
+    "sprintId":  "E05",
+    "factBaseSlices":  [
+                           "s07",
+                           "s12",
+                           "s13"
+                       ],
+    "goalOneSentence":  "Build and run containerized mocker image-env-port serving port 8127.",
+    "nonGoals":  [
+                     "pushing to remote registry"
+                 ],
+    "feature":  "image-env-port",
+    "portContract":  "This is a docker-image scenario where the mocker config file is chosen by the QAAS_MOCKER_CONFIG environment variable at run time (sh -c ENTRYPOINT, FB s14#6). The container listens on HTTP port 8080 INTERNALLY (do NOT change it). The image is run with '-e QAAS_MOCKER_CONFIG=hello.mocker.yaml -p 8127:8080'. The live gate curls http://127.0.0.1:8127/health expecting 'ok'. Do NOT change the mocker Port to 8127 - the container stays on 8080 and Docker maps host 8127 to it."
+}

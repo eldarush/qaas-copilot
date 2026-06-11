@@ -1,0 +1,68 @@
+{
+  "tasks": [
+    {
+      "dependsOn": [],
+      "id": "T-001",
+      "notes": "",
+      "factBaseSlices": [
+        "s07",
+        "s12",
+        "s13"
+      ],
+      "files": {
+        "create": [
+          "Dockerfile",
+          ".dockerignore",
+          "BUILD.md"
+        ],
+        "edit": []
+      },
+      "title": "Package mocker as docker image",
+      "skill": "build-mocker-image",
+      "docPages": [],
+      "description": "The working directory contains Hello/ - a complete, working QaaS mocker project (Hello.csproj referencing QaaS.Mocker + QaaS.Common.Processors Version=*; one-line Program.cs 'QaaS.Mocker.Bootstrap.New(args).Run();'; hello.mocker.yaml serving GET /health -> 200 'ok' on Port 8080). Do NOT modify anything under Hello/. Create at the working-directory ROOT: (1) Dockerfile - multi-stage: stage 1 'FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build', WORKDIR /src, COPY . ., RUN dotnet restore Hello/Hello.csproj, RUN dotnet publish Hello/Hello.csproj -c Release -o /app/publish --no-restore; stage 2 'FROM mcr.microsoft.com/dotnet/aspnet:10.0' (CRITICAL: aspnet, NOT runtime - the mocker hosts an HTTP server and the runtime image fails at startup, FB s13#7), WORKDIR /app, COPY --from=build /app/publish ., ENTRYPOINT [\"dotnet\", \"Hello.dll\", \"hello.mocker.yaml\"] (exec-form JSON array; the yaml argument is the mocker config - it was copied to output because the csproj marks it CopyToOutputDirectory Always). The container listens on 8080 INTERNALLY (the seed default - do NOT change it). (2) .dockerignore with at least bin/, obj/, *.md. (3) BUILD.md documenting exactly: build command 'docker build -t qaas-image-e02 .', run command 'docker run -d --name qaas-test-E02 -p 8124:8080 qaas-image-e02' (host 8124 maps to container 8080), smoke check 'curl http://127.0.0.1:8124/health' expecting body 'ok', cleanup 'docker rm -f qaas-test-E02', plus one sentence on why the final base image must be aspnet:10.0 citing s13#7. The verify gate runs the real docker build and a live curl through host port 8124.",
+      "priority": 1,
+      "rubric": [
+        "Dockerfile uses correct multi-stage pattern"
+      ],
+      "verify": [
+        {
+          "timeoutSec": 60,
+          "cmd": "Select-String -Path Dockerfile -Pattern 'aspnet:10.0' -Quiet",
+          "expectOutputContains": "True"
+        },
+        {
+          "cmd": "docker build -t qaas-image-e02 .",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        },
+        {
+          "cmd": "docker rm -f qaas-test-E02 2>$null | Out-Null; docker run -d --name qaas-test-E02 -p 8124:8080 qaas-image-e02 | Out-Null; $body=''; foreach($i in 1..20){ try { $body = (Invoke-WebRequest -Uri http://127.0.0.1:8124/health -UseBasicParsing -TimeoutSec 2).Content.Trim(); break } catch { Start-Sleep 1 } }; docker rm -f qaas-test-E02 | Out-Null; if($body -eq 'ok'){ exit 0 } else { exit 1 }",
+          "expectExitCode": 0,
+          "timeoutSec": 300
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "docker build succeeds",
+        "aspnet:10.0 is used as the base image"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Using runtime:10.0 which has no HTTP host"
+      ]
+    }
+  ],
+  "sprintId": "E02",
+  "factBaseSlices": [
+    "s07",
+    "s12",
+    "s13"
+  ],
+  "goalOneSentence": "Build and run containerized mocker image-with-controller serving port 8124.",
+  "nonGoals": [
+    "pushing to remote registry"
+  ],
+  "feature": "image-with-controller",
+  "portContract": "This is a docker-image scenario. The container's mocker listens on HTTP port 8080 INTERNALLY (the seed hello.mocker.yaml default - do NOT change it). The image is run mapping host port 8124 to container port 8080 (docker run -p 8124:8080). The live gate curls http://127.0.0.1:8124/health expecting body 'ok'. Do NOT set the mocker Port to 8124 - the container stays on 8080 and Docker handles the host-to-container mapping."
+}

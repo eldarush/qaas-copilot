@@ -1,0 +1,79 @@
+{
+  "sprintId": "D03",
+  "feature": "Diagnose and fix the failing OrderHub status suite",
+  "goalOneSentence": "Find why the seeded OrderHub suite fails against its own mocker, apply the minimal config fix, document the diagnosis, and prove the suite green end-to-end.",
+  "nonGoals": [
+    "rewriting the suite",
+    "changing the mocker (it is correct)",
+    "adding new tests"
+  ],
+  "factBaseSlices": [
+    "s00",
+    "s02",
+    "s06",
+    "s10",
+    "s13"
+  ],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Diagnose the failing suite, fix it, write DIAGNOSIS.md",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "diagnose-failure",
+      "files": {
+        "create": [
+          "DIAGNOSIS.md"
+        ],
+        "edit": [
+          "Runner/orders.qaas.yaml"
+        ]
+      },
+      "description": "The working directory contains a complete QaaS suite that FAILS: Runner/ (Runner.csproj, Program.cs, orders.qaas.yaml, TestData/order-1.json) and Mocker/ (Mocker.csproj, Program.cs, orders.mocker.yaml — the mocker is correct, treat it as read-only). Reproduce the failure yourself: build both projects (dotnet build Runner -c Release; dotnet build Mocker -c Release), start the mocker (dotnet run --project Mocker -c Release -- run orders.mocker.yaml) which listens on http://0.0.0.0:8093 with endpoint Path /status, then run the suite (dotnet run --project Runner -c Release -- run orders.qaas.yaml) and observe the non-zero exit / failed HttpStatus assertion. Diagnose using the failure-triage decision tree: the transaction gets a 404 because the runner Http transaction Route value has a LEADING SLASH — BaseAddress+Port+'/'+Route composition turns 'Route: /status' into '//status', which matches no mocker endpoint (fact base s13 row 5). Apply the MINIMAL fix: in Runner/orders.qaas.yaml change 'Route: /status' to 'Route: status'. Change NOTHING else (no port changes, no mocker edits, no assertion edits). Then write DIAGNOSIS.md at the working-directory root with sections: '## Symptom' (exit code, assertion state, what the evidence showed), '## Root cause' (the leading-slash Route bug, citing s13#5 explicitly with the literal text 's13#5'), '## Fix' (the one-line diff), '## Verification' (the commands that now exit 0). The verify gate will re-run the full pipeline live and grep DIAGNOSIS.md for 's13#5'.",
+      "acceptanceCriteria": [
+        "Runner/orders.qaas.yaml contains 'Route: status' (no leading slash) and is otherwise unchanged",
+        "DIAGNOSIS.md exists with Symptom/Root cause/Fix/Verification sections and cites s13#5",
+        "Full live pipeline (mocker up, runner suite) exits 0"
+      ],
+      "factBaseSlices": [
+        "s06",
+        "s10",
+        "s13",
+        "s03"
+      ],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Select-String -Path Runner\\orders.qaas.yaml -Pattern 'Route: status' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path DIAGNOSIS.md -Pattern 's13#5' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','orders.mocker.yaml' -WorkingDirectory '..\\Mocker' -PassThru; $ok = $false; foreach ($i in 1..40) { try { (New-Object Net.Sockets.TcpClient('127.0.0.1', 8093)).Close(); $ok = $true; break } catch { Start-Sleep 2 } }; if (-not $ok) { Stop-Process -Id $m.Id -Force; exit 9 }; dotnet run -c Release -- run orders.qaas.yaml; $code = $LASTEXITCODE; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "expectExitCode": 0,
+          "timeoutSec": 900,
+          "cwd": "Runner"
+        }
+      ],
+      "rubric": [
+        "Diagnosis names the actual root cause (Route composition), not a guess like 'mocker was down'",
+        "Fix is minimal — exactly the Route line, mocker untouched",
+        "DIAGNOSIS.md evidence quotes real runner output, not invented logs"
+      ],
+      "failureModes": [
+        "Fixing by changing the mocker Path to //status (treats symptom, violates read-only mocker)",
+        "Blaming ports/firewall without evidence while the TCP connect succeeds",
+        "DIAGNOSIS.md missing the literal s13#5 citation"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ],
+  "portContract": "This sprint's mocker MUST listen on HTTP port 8093. Every runner Transaction MUST target http://127.0.0.1:8093. Do NOT change the port."
+}
