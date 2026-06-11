@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat \"${CLAUDE_PLUGIN_ROOT}/skills/qaas-overview/SKILL.md\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

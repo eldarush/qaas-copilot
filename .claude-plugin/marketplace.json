@@ -1,0 +1,18 @@
+{
+  "name": "qaas-copilot",
+  "owner": { "name": "eldarush" },
+  "metadata": {
+    "description": "QaaS Copilot for Claude Code — skills, agents, offline Fact Base, and airgap-safe docs fetch.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "qaas",
+      "source": "./plugins/qaas",
+      "description": "Plan, write, run, and debug QaaS Runner/Mocker tests and custom hooks using only the QaaS docs. Airgap-ready and docs-backed.",
+      "version": "1.0.0",
+      "category": "testing",
+      "tags": ["qaas", "integration-testing", "airgap", "mocker", "runner"]
+    }
+  ]
+}

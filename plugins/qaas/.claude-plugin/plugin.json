@@ -1,0 +1,8 @@
+{
+  "name": "qaas",
+  "version": "1.0.0",
+  "description": "Author, run, and debug QaaS tests from the QaaS docs alone. Ships 15 skills, 3 subagents, an offline drift-corrected Fact Base, and airgap-safe curl-based docs fetch.",
+  "author": { "name": "QaaS Copilot" },
+  "homepage": "https://github.com/eldarush/qaas-copilot",
+  "keywords": ["qaas", "testing", "runner", "mocker", "airgap", "integration-tests", "hooks"]
+}

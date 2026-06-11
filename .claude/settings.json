@@ -1,0 +1,11 @@
+{
+  "$comment": "Opening this repo in Claude Code auto-registers the QaaS marketplace and enables the qaas plugin (skills, agents, commands). For an airgapped machine with no GitHub access, replace the source below with a local path: \"source\": \"/abs/path/to/qaas-copilot\" — see INSTALL.md.",
+  "extraKnownMarketplaces": {
+    "qaas-copilot": {
+      "source": { "source": "github", "repo": "eldarush/qaas-copilot" }
+    }
+  },
+  "enabledPlugins": {
+    "qaas@qaas-copilot": true
+  }
+}

@@ -1,0 +1,17 @@
+work/
+tmp/
+.qaas-harness/
+*.log
+*.tmp
+__pycache__/
+*.pyc
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+
+platform/
+eval/
+
