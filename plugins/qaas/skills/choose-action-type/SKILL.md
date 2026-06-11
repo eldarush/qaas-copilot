@@ -38,7 +38,7 @@ below, then cite that row in your output.
 | **Receive / verify output** from broker, table, bucket, queue | **Consumer** | Output named after consumer | TimeoutMs REQUIRED |
 | **Call an API and check response** (HTTP or gRPC request/response) | **Transaction** | Input + Output named after transaction | DataSourceNames REQUIRED (FB s13#3) |
 | **Scrape metrics** over a time window | **Collector** (Prometheus) | Output named after collector | Protocol: Prometheus only |
-| **Setup / teardown / wait-for-ready** infra (create queue, flush DB, ping endpoint) | **Probe** | none | 43 probes available (FB s11) |
+| **Setup / teardown / wait-for-ready** infra (create queue, flush DB, ping endpoint) | **Probe** | none | 41 documented probes (FB s11) |
 | **Change mocker behavior mid-test** at runtime | **MockerCommands** | none (Consume variant creates Input+Output) | Requires mocker Controller + Redis (FB s02) |
 
 ### 2. Protocol matrix per action type (FB s02 §2.6)
@@ -122,7 +122,7 @@ HttpStatus passes **vacuously** when zero outputs arrive (false green, LAB L7).
 
 - FB s02 §2.6 (action type field lists, protocols, default stages)
 - FB s00 (evidence model: action Name → SessionData Input/Output)
-- FB s11 (43 probes catalog)
+- FB s11 (41 documented probes catalog)
 - FB s13#3 (Transaction DataSourceNames required)
 - FB s13#5 (Route no leading slash)
 - FB s13#13 (HttpStatus vacuous pass)

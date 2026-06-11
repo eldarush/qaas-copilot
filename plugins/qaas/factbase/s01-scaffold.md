@@ -31,7 +31,7 @@
 
   **WHY THIS MATTERS — silent until runtime.** A missing `Common.*` package still **builds fine**
   (`dotnet build` exit 0). It crashes only later at `template`/`run` with **exit `-532462766`** and an
-  Autofac `HookProvider…ResolveSupportedHookType` stack trace — the single hardest weak-model trap to
+  Autofac `HookProvider…ResolveSupportedHookType` stack trace — the single hardest low-reasoning-model trap to
   diagnose. Including the family up-front is free (an unused `Common.*` ref is harmless). See §13 row 8.
 
   If you do not know a package's exact version and have no feed to query, emit

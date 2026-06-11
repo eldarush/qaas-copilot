@@ -102,7 +102,7 @@ Expression(req query_range), ApiKey, SampleIntervalMs(30000), TimeoutMs(120000)}
 
 #### Probes (Sessions[].Probes[]) — no SessionData
 Fields: Name(req), **Probe**(impl simple name, req), ProbeConfiguration(dict), Configuration,
-Stage(3), DataSourceNames, DataSourcePatterns. **43 probes catalog → §11.** Pkg `QaaS.Common.Probes`.
+Stage(3), DataSourceNames, DataSourcePatterns. **Probes catalog (41 documented) → §11.** Pkg `QaaS.Common.Probes`.
 
 #### MockerCommands (Sessions[].MockerCommands[]) — Redis control plane
 Fields: Name(req), ServerName(req — must byte-match mocker `Controller.ServerName`),

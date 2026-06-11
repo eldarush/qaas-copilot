@@ -37,7 +37,7 @@ contract:
 
 # validate-compatibility
 
-> **When in doubt, run this skill before authoring any file.**  
+> **When in doubt, run this skill before authoring any file.**
 > The uncertainty rule: if a field name, config key, package version, or feature behavior
 > is NOT confirmed in your current context (Fact Base or fetched docs), invoke this skill
 > before writing. Never guess a name, base-class signature, or default.

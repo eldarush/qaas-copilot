@@ -34,10 +34,10 @@ export QAAS_DOCS_URL="http://docs.internal.example.com"
 | Surface | What it does |
 |---|---|
 | `qaas-overview` | Always-on master skill with docs-first rules and drift traps |
-| 15 task skills | runner, mocker, hooks, run/diagnose, container, airgap, compatibility |
-| 3 subagents | planner, test author, debugger |
+| 19 task skills | planning, runner, mocker, hooks, run/diagnose, container, airgap, compatibility, SUT/Helm/test analysis, project docs |
+| 4 subagents | planner, test author, debugger, read-only analyst |
 | `/qaas:docs <path>` | Fetch docs over curl from `$QAAS_DOCS_URL` |
-| `/qaas:fact <slice>` | Read the offline Fact Base (`s00`–`s15`) |
+| `/qaas:fact <slice>` | Read the offline Fact Base (`s00`–`s16`) |
 | `/qaas:new-test <goal>` | Plan, author, run, verify |
 | `/qaas:diagnose <evidence>` | Root-cause a failing run |
 | `/qaas:verify` | Fail-closed completion gate |

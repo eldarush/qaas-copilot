@@ -2,7 +2,7 @@
 name: scaffold-mocker-project
 version: 1.0.0
 description: Scaffold a QaaS Mocker project with correct csproj, Dockerfile (aspnet:10.0), and YAML copy settings.
-when_to_use: ONLY when the runner's sessions target a mock endpoint that does not already exist; a runner-only goal does NOT need this skill — require an explicit mock decision (MOCK_REQUIRED: yes) before invoking.
+when_to_use: Sprint needs a configurable HTTP/gRPC/Socket mock server alongside the runner project.
 inputs:
   - project_name: e.g. MyServiceMock
   - nuget_feed_url: Artifactory feed URL (or local path for dev)
@@ -20,7 +20,6 @@ contract:
     - 'dotnet run -- template mocker.qaas.yaml exits 0'
     - 'Dockerfile base image is aspnet:10.0 (not runtime:10.0)'
   failure_modes:
-    - 'authored a mocker for a runner-only goal — wasted scope; require explicit mock decision (MOCK_REQUIRED: yes) before using this skill'
     - 'Dockerfile uses runtime:10.0 -> container fails: Microsoft.AspNetCore.App not found (FB s13#7)'
     - 'Missing QaaS.Common.Processors PackageReference -> FTL + exit -532462766 (FB s13#8)'
     - 'CopyToOutputDirectory absent on mocker.qaas.yaml -> config file not found (FB s01)'

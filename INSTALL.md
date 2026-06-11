@@ -32,8 +32,8 @@ export QAAS_DOCS_URL="http://docs.internal.example.com"
 | Capability | Included |
 |---|---|
 | Always-on QaaS guidance | `qaas-overview` master skill |
-| Task skills | 15 skills for planning, authoring, running, diagnosing, containers, airgap, compatibility |
-| Subagents | planner, test author, debugger |
+| Task skills | 19 skills for planning, authoring, running, diagnosing, containers, airgap, compatibility, SUT/Helm/test analysis, project docs |
+| Subagents | planner, test author, debugger, read-only analyst |
 | Commands | `/qaas:docs`, `/qaas:fact`, `/qaas:new-test`, `/qaas:diagnose`, `/qaas:verify` |
 
 ## Verify the install

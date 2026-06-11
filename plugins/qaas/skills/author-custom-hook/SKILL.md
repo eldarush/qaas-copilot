@@ -69,7 +69,7 @@ Rules (FB s04, LAB L4):
 
 Put this **complete** header at the top of every runner hook file. `Data<T>` and `SessionData`
 live in **two different namespaces** — you need **both**. Omitting `SessionDataObjects` is the #1
-weak-model compile failure: `CS0246 'SessionData' not found` → cascading `CS0534 does not implement
+low-reasoning-model compile failure: `CS0246 'SessionData' not found` → cascading `CS0534 does not implement
 inherited abstract member 'Assert(...)'` (the override signature can't resolve).
 ```csharp
 using System;
@@ -121,7 +121,7 @@ public sealed class LengthAssertion : BaseAssertion<LengthConfig>
 **Reading a JSON field from an HTTP response body** (very common). The body is **typed** by
 `CastCommunicationData<JsonElement>()`; each `comm.Data[i].Body` is a `JsonElement` **struct**.
 Use `TryGetProperty` / `ValueKind` / `GetString()`. **Never** apply `?.` to it (`CS0023`) and
-**never** pattern-match it against `byte[]` or `string` (`CS8121`) — those are the weak-model traps.
+**never** pattern-match it against `byte[]` or `string` (`CS8121`) — those are the classic traps.
 ```csharp
 public sealed class JsonFieldAssertion : BaseAssertion<JsonFieldConfig>
 {

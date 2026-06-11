@@ -1,4 +1,6 @@
-## 11. CATALOG — Probes (pkg `QaaS.Common.Probes`; src 06; "43 probes")
+> SNAPSHOT at Runner 4.5.1 / Mocker 2.4.1 — fetch live docs first (see FB s16); verify against your docs when reachable.
+
+## 11. CATALOG — Probes (pkg `QaaS.Common.Probes`; src 06; 41 documented — docs prose says "43" but only 41 have doc pages)
 Attach: `Sessions[].Probes[]` with Name, Probe(type), ProbeConfiguration(dict), Stage(3),
 DataSourceNames/Patterns. Per-probe required fields vary; full schema `docs/_generated/schemas/
 probes.md`.

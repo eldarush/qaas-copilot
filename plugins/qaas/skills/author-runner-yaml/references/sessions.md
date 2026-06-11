@@ -87,7 +87,7 @@ Protocol (1): **Prometheus** — `Url` (req base URL, no route), `Expression` (r
 
 ## Probes (FB s02 §2.6, FB s11)
 
-No SessionData. 43 probes available (FB s11).
+No SessionData. 41 documented probes available (FB s11).
 Fields: `Name` (req), `Probe` (impl simple name, req), `ProbeConfiguration` (dict),
 `Configuration`, `Stage` (3), `DataSourceNames`, `DataSourcePatterns`.
 Package: `QaaS.Common.Probes` (FB s13#8).

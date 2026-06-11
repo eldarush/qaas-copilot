@@ -1,3 +1,5 @@
+> SNAPSHOT at Runner 4.5.1 / Mocker 2.4.1 — fetch live docs first (see FB s16); verify against your docs when reachable.
+
 ## 12. CATALOG — 9 Mocker Processors (pkg `QaaS.Common.Processors`; src 05)
 Bind in `Stubs[]` via `Processor` + `ProcessorConfiguration` (+ optional `DataSourceNames`).
 Signature: `Data<object> Process(IImmutableList<DataSource>, Data<object> requestData)`.

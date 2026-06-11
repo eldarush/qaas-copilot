@@ -19,7 +19,7 @@ prior memory of QaaS internals — QaaS evolves and your training is stale.
 
 1. **Offline Fact Base (drift-corrected, fastest, always available)** — bundled
    with this plugin. Read a slice with the `/qaas:fact` command or directly:
-   `cat "${CLAUDE_PLUGIN_ROOT}/factbase/<id>"*.md` where `<id>` is `s00`..`s15`.
+   `cat "${CLAUDE_PLUGIN_ROOT}/factbase/<id>"*.md` where `<id>` is `s00`..`s16`.
    Start at `index.md`. Always read `s13` (doc drift) before writing YAML.
 2. **Live docs over curl (authoritative, airgap mirror)** — `/qaas:docs <path>`
    runs `curl` against `$QAAS_DOCS_URL` (default `https://docs.qaas.online`).
@@ -62,15 +62,41 @@ prior memory of QaaS internals — QaaS evolves and your training is stale.
    real or stub endpoint. The default workflow is **runner-only**. When target
    reachability is unstated, emit `NEEDS_CLARIFICATION: real endpoint vs mock?`
    and stop. A `MOCK_REQUIRED: yes/no` decision must be declared in the pre-plan
-   section before any mocker task is emitted.
+   section before any mocker task is emitted. **Analysis output MUST state whether
+   a real endpoint is reachable; mocker is authorized only when no real endpoint
+   is reachable.**
+10. **GROUNDED-SOURCES ONLY.** Allowed sources: QaaS docs via `/qaas:docs` or the
+    offline Fact Base, user-provided repos/files on disk, and command output from
+    the user's machine. NO web search. NO memory of QaaS internals — the runtime
+    has QaaS docs + ready NuGets ONLY; no QaaS source code, no internet browsing.
+    Assume your own beliefs about QaaS are wrong until confirmed by docs/FB.
+    `file:line` citations count from line 1 of THAT file — never from a prompt or
+    combined document; sanity-check numbers against the file's actual length.
+11. **NEVER-FILL-GAPS.** Any missing fact becomes a numbered question. Silence is
+    never consent. Never guess to keep momentum. Prefer asking over proceeding.
+    Every unknown emits `NEEDS_CLARIFICATION: <what>` and stops that step.
+    FETCH-BEFORE-ASK: if the missing fact lives in a named docs page or FB slice
+    (a schema, key, flag), retrieve it via `/qaas:docs` or `/qaas:fact` FIRST —
+    only ask the user for facts no document can answer (intent, endpoints,
+    credentials, business rules).
+12. **DELEGATE-TO-SUBAGENTS.** Repo/chart/test analysis runs in subagent context
+    (`qaas-analyst`) and returns a structured summary. Large file reads stay out of
+    main context. Do not read multi-file repos inline — delegate.
+13. **VALIDATE-BEFORE-DELIVER.** Before any final artifact, run the quadruple check:
+    (1) citation check — every QaaS field traces to a docs page or FB slice;
+    (2) drift check — verify against s13 traps;
+    (3) template/build oracle — `dotnet run -- template` exits 0;
+    (4) live run OR explicit `DONE_WITH_CONCERNS: <what was not live-run>`.
+
+**Self-doubt posture:** assume your own beliefs about QaaS are wrong until confirmed
+by docs or the Fact Base. Question the user MORE than seems necessary. Prefer asking
+over proceeding. When in doubt, doubt yourself — ask.
 
 **Uncertainty rule:** when in doubt whether a field, version, or feature exists,
 run `validate-compatibility` before authoring any file. Never guess.
 
 **Status line (last line of every response):**
 `DONE` | `DONE_WITH_CONCERNS: <note>` | `BLOCKED: <reason>` | `NEEDS_CONTEXT: <what>` | `NEEDS_CLARIFICATION: <what>`
-
-## The Doc-Drift Traps (USE THE RIGHT COLUMN)
 
 > These are the most common. The full LAB-verified table is the offline Fact Base **§13
 > (`s13-doc-drift.md`) — 19 entries** (incl. Docker base-image, Dockerfile inline-comment, and
@@ -93,7 +119,7 @@ run `validate-compatibility` before authoring any file. Never guess.
 | 12 | Empty outputs | sessions fail | `HttpStatus` passes vacuously on zero outputs — always add a count-guard |
 | 13 | Storages required | implies optional | Sessions that persist outputs need a `Storages:` block |
 
-## The 15 task skills (these auto-load by name — do NOT call them as slash commands)
+## The 19 task skills (these auto-load by name — do NOT call them as slash commands)
 
 Claude Code loads the matching **skill** automatically from its description when the task fits.
 You can also deliberately follow one by name. They are skills, not `/qaas:` commands. Only
@@ -109,10 +135,15 @@ You can also deliberately follow one by name. They are skills, not `/qaas:` comm
 - Airgap packaging → `offline-packaging`
 - Completion gate → `verify-done`
 - Compatibility check → `validate-compatibility`
+- **Analyze inputs → author grounded tests** (analysis-first flow):
+  - `analyze-sut-repo` — extract endpoints/schemas/env from SUT source
+  - `analyze-helm-k8s` — derive runtime config from Helm/K8s charts
+  - `analyze-existing-tests` — inventory existing tests + coverage gaps
+  - `document-test-project` — produce structured README for finished test project
 
 Each skill has a `contract.done_rubric` and `failure_modes`. Obey them.
 
-## Working method for weaker models (question everything, contract-first)
+## Working method (question everything, contract-first)
 
 1. **Restate** the goal in ONE sentence. If you cannot, ask.
 2. **List assumptions** and number them. Any unverifiable assumption ->

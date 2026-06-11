@@ -1,3 +1,5 @@
+> SNAPSHOT at Runner 4.5.1 / Mocker 2.4.1 — fetch live docs first (see FB s16); verify against your docs when reachable.
+
 ## 9. CATALOG — 11 Assertions (pkg `QaaS.Common.Assertions`; src 05)
 Required config keys in **bold**; HttpStatus shape is [LAB]-corrected (§13).
 

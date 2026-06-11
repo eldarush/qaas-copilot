@@ -15,10 +15,11 @@ Chunked, LAB-verified QaaS knowledge. The harness injects only the slices a task
 | FB §8 | s08-airgap.md | 0.8KB | TASK: Offline / airgap packaging |
 | FB §9 | s09-assertions-catalog.md | 2.3KB | CATALOG: 11 assertions + exact config keys |
 | FB §10 | s10-generators-catalog.md | 1.9KB | CATALOG: 11 generators + config |
-| FB §11 | s11-probes-catalog.md | 1.5KB | CATALOG: probes (43) |
+| FB §11 | s11-probes-catalog.md | 1.5KB | CATALOG: probes (41 documented) |
 | FB §12 | s12-processors-catalog.md | 1.9KB | CATALOG: 9 mocker processors |
 | FB §13 | s13-doc-drift.md | 2.5KB | DOC-DRIFT table — critical traps (LAB-verified) |
 | FB §14 | s14-golden-examples.md | 9.6KB | GOLDEN EXAMPLES (verbatim, LAB-green) |
 | FB §15 | s15-source-index.md | 0.4KB | Source index |
+| FB §16 | s16-docs-navigation.md | ~5KB | NAVIGATION: hook name index + discovery-before-denial protocol |
 
 Rules: golden examples = §14; drift traps = §13; error signatures = §7. Always inject §13 alongside §2/§3/§14.
