@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: payment-config
-data:
-  GATEWAY_URL: "https://blue.prod.gateway.io"
-  LOG_LEVEL: "warn"

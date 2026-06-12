@@ -1,6 +1,0 @@
-apiVersion: v2
-name: order-enricher
-description: Helm chart for the OrderEnricher service
-type: application
-version: 0.3.0
-appVersion: "2.1.0"

@@ -1,1 +1,0 @@
-QaaS.Runner.Bootstrap.New(args).Run();
