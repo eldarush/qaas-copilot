@@ -1,0 +1,65 @@
+{
+  "tasks": [
+    {
+      "dependsOn": [],
+      "id": "T-001",
+      "notes": "",
+      "factBaseSlices": [
+        "s06",
+        "s10",
+        "s13",
+        "s03"
+      ],
+      "files": {
+        "create": [
+          "DIAGNOSIS.md"
+        ],
+        "edit": [
+          "Mocker/test.mocker.yaml"
+        ]
+      },
+      "title": "Diagnose, repair and verify the suite",
+      "skill": "diagnose-failure",
+      "docPages": [],
+      "description": "The end-to-end suite fails: the live run cannot get a 200 from the mocker. The fault is a single configuration trap (s13#1) in Mocker/test.mocker.yaml. Reproduce the failure, apply the MINIMAL fix to Mocker/test.mocker.yaml (change only the one trapped key - do NOT rewrite the file or touch the runner), write DIAGNOSIS.md citing s13#1 explicitly, and run the e2e verify gate.",
+      "priority": 1,
+      "rubric": [
+        "Diagnosis is complete and references the exact trap"
+      ],
+      "verify": [
+        {
+          "timeoutSec": 60,
+          "cmd": "Select-String -Path DIAGNOSIS.md -Pattern 's13#1' -Quiet",
+          "expectOutputContains": "True"
+        },
+        {
+          "cwd": "Runner",
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','test.mocker.yaml' -WorkingDirectory '..\\Mocker' -PassThru; $ok = $false; foreach ($i in 1..40) { try { (New-Object Net.Sockets.TcpClient('127.0.0.1', 8120)).Close(); $ok = $true; break } catch { Start-Sleep 2 } }; if (-not $ok) { Stop-Process -Id $m.Id -Force; exit 9 }; dotnet run -c Release -- run test.qaas.yaml; $code = $LASTEXITCODE; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "DIAGNOSIS.md cites s13#1",
+        "E2E runs successfully green"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Incomplete description of fix"
+      ]
+    }
+  ],
+  "sprintId": "D02",
+  "factBaseSlices": [
+    "s06",
+    "s10",
+    "s13"
+  ],
+  "goalOneSentence": "Diagnose and fix transactiondata-trap caused by trap s13#1.",
+  "nonGoals": [
+    "rewriting docker files"
+  ],
+  "feature": "transactiondata-trap",
+  "portContract": "This sprint's mocker(s) MUST listen on HTTP port 8120. Every runner Transaction MUST target http://127.0.0.1:8120 (set the mocker server Port: 8120 and the runner BaseAddress/Port to 8120). Do NOT use the 8080 default from Fact Base examples - use 8120 exactly, or the live end-to-end run cannot connect."
+}

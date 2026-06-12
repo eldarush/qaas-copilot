@@ -1,0 +1,116 @@
+{
+  "sprintId": "B01",
+  "feature": "Standard service mock with health and hello routes",
+  "goalOneSentence": "Build a QaaS mocker exposing GET /health (HealthProcessor) and GET /hello (StaticResponseProcessor, 200 'hello') on port 8091, verified by booting it and curling both routes.",
+  "nonGoals": [
+    "runner tests",
+    "controller",
+    "docker image"
+  ],
+  "factBaseSlices": [
+    "s01",
+    "s03",
+    "s13",
+    "s14"
+  ],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Scaffold mocker project",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "scaffold-mocker-project",
+      "files": {
+        "create": [
+          "Mocker/Mocker.csproj",
+          "Mocker/Program.cs"
+        ],
+        "edit": []
+      },
+      "description": "Create a .NET 10 console project for a QaaS mocker. Mocker/Mocker.csproj: Project Sdk Microsoft.NET.Sdk; PropertyGroup with OutputType Exe, TargetFramework net10.0, ImplicitUsings enable, Nullable enable; ItemGroup with PackageReference QaaS.Mocker Version * and PackageReference QaaS.Common.Processors Version * (processors live in QaaS.Common.Processors - FB s01, s13#8); ItemGroup with None Update svc.mocker.yaml and CopyToOutputDirectory Always (FB s01 config-file-not-found trap). Mocker/Program.cs is exactly one line: QaaS.Mocker.Bootstrap.New(args).Run(); (FB s01). Do NOT create the YAML in this task.",
+      "acceptanceCriteria": [
+        "dotnet build -c Release exits 0"
+      ],
+      "factBaseSlices": [
+        "s01",
+        "s13"
+      ],
+      "docPages": [],
+      "verify": [
+        {
+          "cwd": "Mocker",
+          "cmd": "dotnet build -c Release",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "rubric": [
+        "csproj matches FB s01 golden shape; no invented properties"
+      ],
+      "failureModes": [
+        "Missing QaaS.Common.Processors -> processor hook not found at boot (FB s13#8)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-002",
+      "title": "Author mocker YAML with health and hello",
+      "priority": 2,
+      "dependsOn": [
+        "T-001"
+      ],
+      "skill": "author-mocker-yaml",
+      "files": {
+        "create": [
+          "Mocker/svc.mocker.yaml"
+        ],
+        "edit": []
+      },
+      "description": "Author Mocker/svc.mocker.yaml following the FB s14.2 verified shape exactly. Top-level keys: DataSources, Stubs, Servers. DataSources: []. Stubs list with two stubs: (1) Name: HealthStub, Processor: StaticResponseProcessor, ProcessorConfiguration (key is ProcessorConfiguration NOT TransactionData - FB s13#1): {Body: 'OK', StatusCode: 200, ContentType: 'text/plain; charset=utf-8'} — a health check is just a static 200; there is NO built-in 'HealthProcessor', use StaticResponseProcessor (FB s12); (2) Name: HelloStub, Processor: StaticResponseProcessor, ProcessorConfiguration: {Body: hello, StatusCode: 200, ContentType: 'text/plain; charset=utf-8'}. Servers list with one item: - Http: {Port: 8091, Endpoints: [(1) - Path: /health (mocker Path KEEPS leading slash - FB s13#5), Actions: [- Name: HealthAction, Method: Get, TransactionStubName: HealthStub]; (2) - Path: /hello, Actions: [- Name: HelloOk, Method: Get, TransactionStubName: HelloStub]]}. Expected boot log lines when run: 'Building transaction stub' per stub, 'Built 4 transaction stub(s) including default not-found and internal-error stubs', 'HTTP Server started. Listening on http://0.0.0.0:8091' (FB s03).",
+      "acceptanceCriteria": [
+        "dotnet run -- template svc.mocker.yaml exits 0 with no 'not found in' warnings",
+        "Live boot: GET http://127.0.0.1:8091/health returns 200",
+        "Live boot: GET http://127.0.0.1:8091/hello returns 200 with body hello"
+      ],
+      "factBaseSlices": [
+        "s03",
+        "s12",
+        "s13",
+        "s14"
+      ],
+      "docPages": [],
+      "verify": [
+        {
+          "cwd": "Mocker",
+          "cmd": "dotnet run -c Release -- template svc.mocker.yaml",
+          "expectExitCode": 0,
+          "expectOutputNotContains": "not found in",
+          "timeoutSec": 300
+        },
+        {
+          "cwd": "Mocker",
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','svc.mocker.yaml' -PassThru; $ok = $false; foreach ($i in 1..40) { try { (New-Object Net.Sockets.TcpClient('127.0.0.1', 8091)).Close(); $ok = $true; break } catch { Start-Sleep 2 } }; if (-not $ok) { Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; Write-Output 'MOCKER NEVER READY'; exit 9 }; $h = (Invoke-WebRequest -Uri 'http://127.0.0.1:8091/health' -UseBasicParsing).StatusCode; $b = (Invoke-WebRequest -Uri 'http://127.0.0.1:8091/hello' -UseBasicParsing); Write-Output ('HEALTH=' + $h + ' HELLO=' + $b.StatusCode + ' BODY=' + $b.Content); Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; if ($h -eq 200 -and $b.StatusCode -eq 200 -and $b.Content -eq 'hello') { exit 0 } else { exit 1 }",
+          "expectExitCode": 0,
+          "expectOutputContains": "HEALTH=200 HELLO=200 BODY=hello",
+          "timeoutSec": 600
+        }
+      ],
+      "rubric": [
+        "YAML top-level keys exactly DataSources/Stubs/Servers (FB s14.2)",
+        "HealthProcessor stub has no invented configuration",
+        "Endpoint paths keep leading slash; stub names referenced exactly"
+      ],
+      "failureModes": [
+        "TransactionData instead of ProcessorConfiguration (FB s13#1)",
+        "Inventing a Mocker:/Name: wrapper section not in the verified shape (FB s14.2)",
+        "Dropping the leading slash from mocker Path (FB s13#5 — only runner Route drops it)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ],
+  "portContract": "This sprint's mocker(s) MUST listen on HTTP port 8091. Every runner Transaction MUST target http://127.0.0.1:8091 (set the mocker server Port: 8091 and the runner BaseAddress/Port to 8091). Do NOT use the 8080 default from Fact Base examples - use 8091 exactly, or the live end-to-end run cannot connect."
+}

@@ -1,0 +1,143 @@
+{
+  "sprintId": "H03",
+  "feature": "analyze-helm-config",
+  "goalOneSentence": "Read the seeded Helm chart (without the helm binary — use manual template reading) and produce runtime-config.md with effective configuration for both default and prod overlays, plus QUESTIONS.md for remaining unknowns.",
+  "nonGoals": [
+    "running helm template or helm install",
+    "writing any QaaS YAML",
+    "writing any csproj",
+    "inventing secret values"
+  ],
+  "factBaseSlices": ["s00", "s13"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Derive effective config from Helm chart and write runtime-config.md",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "analyze-helm-k8s",
+      "files": {
+        "create": ["qaas-analysis/runtime-config.md"],
+        "edit": []
+      },
+      "description": "The working directory contains a seeded Helm chart at chart/order-enricher/. The helm binary may NOT be available — document this and fall back to manual template reading (read values.yaml, values-prod.yaml, templates/deployment.yaml, templates/configmap.yaml directly). Write qaas-analysis/runtime-config.md with ALL of the following sections:\n\n**Section 1 — Analysis Method**. One sentence noting that the helm binary was not assumed available, and that effective configuration was derived by manually reading and merging values.yaml, values-prod.yaml, templates/deployment.yaml, and templates/configmap.yaml.\n\n**Section 2 — Effective Configuration Table** (required Markdown table with columns: Key, Default Value, Prod Overlay Value, Source File). Populate it by reading all chart files. Must include ALL of these rows:\n- ENRICHER_MODE: default 'standard' (from values.yaml), prod override 'turbo' (from values-prod.yaml), source deployment.yaml\n- PREFETCH_COUNT: default '50' (from templates/configmap.yaml via ConfigMap order-enricher-config, envFrom), prod override '50' (same — not overridden), source configmap.yaml\n- BATCH_WINDOW_MS: default '200' (from templates/configmap.yaml), prod override '200' (same), source configmap.yaml\n- replicaCount: default 1 (values.yaml), prod override 3 (values-prod.yaml), source deployment.yaml\n- service.port / containerPort: default 8088 (values.yaml), prod override 8088 (same), source deployment.yaml\n\n**Section 3 — Secrets**. Table with columns: Key, Kubernetes Secret Name, Secret Key, Value for Tests. Include: RABBIT_PASSWORD — secret name: rabbit-creds, key: password, value for tests: write exactly SECRET:rabbit-creds/password as a placeholder. NEVER invent or guess the password value. Note that the actual value must be obtained from the Kubernetes cluster or a secrets manager.\n\n**Section 4 — Port**. State the container port is 8088 (from values.yaml service.port, referenced in templates/deployment.yaml containerPort). Cite both files.\n\nDo NOT run helm. Do NOT invent any config keys not present in the chart files. Do NOT provide the actual RABBIT_PASSWORD value.",
+      "acceptanceCriteria": [
+        "qaas-analysis/runtime-config.md exists",
+        "PREFETCH_COUNT with value 50 and citation to configmap.yaml present",
+        "Prod overlay ENRICHER_MODE 'turbo' documented",
+        "RABBIT_PASSWORD listed with placeholder SECRET:rabbit-creds/password (not an invented value)",
+        "Port 8088 documented",
+        "configmap.yaml cited as source for PREFETCH_COUNT"
+      ],
+      "factBaseSlices": ["s00", "s13"],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Select-String -Path qaas-analysis\\runtime-config.md -Pattern 'PREFETCH_COUNT' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\runtime-config.md -Pattern '50' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\runtime-config.md -Pattern 'turbo' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\runtime-config.md -Pattern 'rabbit-creds' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\runtime-config.md -Pattern '8088' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\runtime-config.md -Pattern 'configmap\\.yaml' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "rubric": [
+        "Derivation method documented (no helm binary assumed)",
+        "Effective config table covers both default and prod overlay",
+        "PREFETCH_COUNT traced to configmap.yaml (not values.yaml — it's in the ConfigMap template)",
+        "RABBIT_PASSWORD listed as SECRET:rabbit-creds/password — no invented value",
+        "Port 8088 documented with citation to both values.yaml and deployment.yaml"
+      ],
+      "failureModes": [
+        "Inventing a value for RABBIT_PASSWORD",
+        "Missing PREFETCH_COUNT from configmap.yaml (it is NOT in values.yaml)",
+        "Missing prod overlay value 'turbo' for ENRICHER_MODE",
+        "Claiming helm was run when no helm binary is available",
+        "Omitting the secrets section"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-002",
+      "title": "Write secrets and overlay QUESTIONS.md",
+      "priority": 2,
+      "dependsOn": ["T-001"],
+      "expectsClarification": true,
+      "skill": "analyze-helm-k8s",
+      "files": {
+        "create": ["qaas-analysis/QUESTIONS.md"],
+        "edit": []
+      },
+      "description": "After deriving the runtime config in T-001, several critical decisions cannot be made from chart files alone. Write qaas-analysis/QUESTIONS.md with AT LEAST 3 numbered, specific, machine-usable questions. REQUIRED questions (paraphrase as needed): (1) How should the RABBIT_PASSWORD secret (from Kubernetes secret rabbit-creds, key: password) be provided to the test environment — is there a secrets manager, a .env file, or a test-specific Kubernetes secret? (2) Which deployment overlay should the tests target — the default (ENRICHER_MODE: standard, replicaCount: 1) or the prod overlay (ENRICHER_MODE: turbo, replicaCount: 3)? This affects which config values the QaaS tests validate. (3) What is the hostname and port for the deployed service that QaaS tests should connect to (given containerPort 8088 — is this exposed via NodePort, Ingress, or port-forward)? You may add additional questions about image tag, namespace, or test isolation. End your response status line with NEEDS_CLARIFICATION.",
+      "acceptanceCriteria": [
+        "qaas-analysis/QUESTIONS.md exists",
+        "Contains at least 3 numbered questions",
+        "One question asks about the secret value or how to obtain credentials",
+        "One question asks which overlay (default vs prod) to target for tests",
+        "Response ends with NEEDS_CLARIFICATION"
+      ],
+      "factBaseSlices": ["s00", "s13"],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Test-Path qaas-analysis\\QUESTIONS.md",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "$q = Get-Content qaas-analysis\\QUESTIONS.md -Raw; $n = ([regex]::Matches($q, '\\?')).Count; if ($n -ge 3) { Write-Output 'True' } else { Write-Output \"FAIL: only $n question marks\" }",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\QUESTIONS.md -Pattern 'secret' -CaseSensitive:$false -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\QUESTIONS.md -Pattern 'overlay|prod' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "rubric": [
+        "Asks about secret value / how to obtain RABBIT_PASSWORD for tests",
+        "Asks which overlay (default vs prod) to target",
+        "Questions are specific and actionable — not generic filler",
+        "Does not re-ask what chart files already answer"
+      ],
+      "failureModes": [
+        "Inventing answers to the secret question instead of asking",
+        "Omitting the overlay question (default vs prod affects test config significantly)",
+        "Fewer than 3 question marks in the file"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

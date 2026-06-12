@@ -1,0 +1,29 @@
+{
+  "sprintId": "S01",
+  "feature": "",
+  "goalOneSentence": "",
+  "nonGoals": [],
+  "factBaseSlices": ["s13"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "",
+      "files": { "create": [], "edit": [] },
+      "description": "",
+      "acceptanceCriteria": [],
+      "factBaseSlices": [],
+      "docPages": [],
+      "verify": [
+        { "cwd": "", "cmd": "", "expectExitCode": 0, "expectOutputContains": "", "timeoutSec": 300 }
+      ],
+      "rubric": [],
+      "failureModes": [],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

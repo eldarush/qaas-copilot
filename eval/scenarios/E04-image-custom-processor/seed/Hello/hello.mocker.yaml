@@ -1,0 +1,13 @@
+Servers:
+  - Http:
+      Port: 8080
+      Endpoints:
+        - Path: /health
+          Actions:
+            - Name: HealthCheck
+              Method: Get
+              TransactionStubName: HealthStub
+Stubs:
+  - Name: HealthStub
+    Processor: CustomOkProcessor
+    ProcessorConfiguration: {}

@@ -1,0 +1,324 @@
+{
+  "sprintId": "H132",
+  "feature": "hmac-processor-chain",
+  "goalOneSentence": "Prove a custom mocker BaseTransactionProcessor base64-decodes, mutates, and HMAC-SHA256 re-signs a JSON payload, verified end-to-end by a paired runner BaseAssertion that recomputes the signature.",
+  "nonGoals": [
+    "RabbitMQ",
+    "docker image builds",
+    "auth flows",
+    "multi-session fanout"
+  ],
+  "factBaseSlices": [
+    "s01",
+    "s04",
+    "s13"
+  ],
+  "portContract": "H132 mocker MUST listen on HTTP port 8231. Set Port: 8231 in the mocker YAML. Do NOT use any other port.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Scaffold mocker and runner projects",
+      "skill": "scaffold-mocker-project",
+      "priority": 1,
+      "dependsOn": [],
+      "factBaseSlices": [
+        "s01",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Mocker/Mocker.csproj",
+          "Mocker/Program.cs",
+          "Runner/Runner.csproj",
+          "Runner/Program.cs"
+        ],
+        "edit": []
+      },
+      "description": "Create two .NET 10 console projects side by side. Mocker/Mocker.csproj: Sdk=Microsoft.NET.Sdk; OutputType=Exe; TargetFramework=net10.0; ImplicitUsings=enable; Nullable=enable; PackageReference QaaS.Mocker Version=2.4.1 and QaaS.Common.Processors Version=1.5.1; ItemGroup with None Update=*.mocker.yaml CopyToOutputDirectory Always. Mocker/Program.cs: exactly one top-level statement QaaS.Mocker.Bootstrap.New(args).Run(); Runner/Runner.csproj: same SDK/output settings; PackageReference QaaS.Runner Version=4.5.1 and QaaS.Common.Assertions Version=3.5.1; ItemGroup with None Update=*.qaas.yaml CopyToOutputDirectory Always. Runner/Program.cs: exactly one top-level statement QaaS.Runner.Bootstrap.New(args).Run(); Do NOT add any hook registration or DI code. Build must succeed for both projects immediately after scaffolding.",
+      "verify": [
+        {
+          "cmd": "dotnet build -c Release",
+          "cwd": "Mocker",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        },
+        {
+          "cmd": "dotnet build -c Release",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet build exits 0 for Mocker",
+        "dotnet build exits 0 for Runner",
+        "Both Program.cs files contain only the one-line Bootstrap call"
+      ],
+      "rubric": [
+        "Mocker references QaaS.Mocker 2.4.1 and QaaS.Common.Processors 1.5.1",
+        "Runner references QaaS.Runner 4.5.1 and QaaS.Common.Assertions 3.5.1",
+        "No invented registration code"
+      ],
+      "failureModes": [
+        "Wrong package versions (s13#9): Common.Processors is 1.5.1 not 4.5.1",
+        "Missing CopyToOutputDirectory Always for YAML files",
+        "Adding extra Main method boilerplate around Bootstrap"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-002",
+      "title": "Author SignedMutateProcessor in the mocker project",
+      "skill": "author-custom-hook",
+      "priority": 2,
+      "dependsOn": [
+        "T-001"
+      ],
+      "factBaseSlices": [
+        "s04",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Mocker/SignedMutateProcessor.cs"
+        ],
+        "edit": []
+      },
+      "description": "Write Mocker/SignedMutateProcessor.cs. First define: public record SignedMutateConfig { [Required] public string? HmacSecret { get; set; } [Required] public string? MutateField { get; set; } [Required] public string? MutateValue { get; set; } } using System.ComponentModel.DataAnnotations. Then write: public class SignedMutateProcessor : BaseTransactionProcessor<SignedMutateConfig> in namespace Mocker. Required usings: QaaS.Framework.SDK.Hooks.Processor, QaaS.Framework.SDK.Session.DataObjects, QaaS.Framework.SDK.DataSourceObjects, System.Collections.Immutable, System.Security.Cryptography, System.Text, System.Text.Json. Override: public override Data<object> Process(IImmutableList<DataSource> dataSourceList, Data<object> requestData). CRITICAL Body contract (FB s13#25): requestData.Body arrives as raw byte[] (UTF-8 request bytes) and the RETURNED Data<object>.Body MUST also be byte[] -- any other return type makes the stub throw \"output is not byte[] for response payload\" and the mocker answers 500 with an empty body. Body steps: (1) string reqJson = requestData.Body switch { byte[] b => Encoding.UTF8.GetString(b), string s => s, _ => JsonSerializer.Serialize(requestData.Body) }; using var reqDoc = JsonDocument.Parse(reqJson); string b64 = reqDoc.RootElement.GetProperty(\"b64\").GetString()!; byte[] innerBytes = Convert.FromBase64String(b64); NEVER call JsonSerializer.Serialize on a byte[] body -- it silently base64-encodes into a JSON string node and GetProperty then throws. (2) using var inner = JsonDocument.Parse(innerBytes); var mutated = new Dictionary<string,object?>(); foreach (var p in inner.RootElement.EnumerateObject()) mutated[p.Name] = (object?)p.Value; mutated[Configuration!.MutateField!] = Configuration!.MutateValue!; (3) byte[] newBodyBytes = JsonSerializer.SerializeToUtf8Bytes(mutated); (4) using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(Configuration!.HmacSecret!)); byte[] sigBytes = hmac.ComputeHash(newBodyBytes); (5) return new Data<object> { Body = JsonSerializer.SerializeToUtf8Bytes(new { payload = Convert.ToBase64String(newBodyBytes), signature = Convert.ToBase64String(sigBytes) }) }. Processor is stateless: all state from Configuration and requestData per call. Configuration nullable in constructor is fine; do not add a non-default constructor.",
+      "verify": [
+        {
+          "cmd": "dotnet build -c Release",
+          "cwd": "Mocker",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        },
+        {
+          "cmd": "Select-String -Path Mocker\\SignedMutateProcessor.cs -Pattern 'BaseTransactionProcessor<' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet build exits 0 with SignedMutateProcessor present",
+        "Class inherits BaseTransactionProcessor<SignedMutateConfig>",
+        "Config record uses [Required] nullable properties"
+      ],
+      "rubric": [
+        "All three transform phases (decode, mutate, HMAC) implemented in Process body",
+        "No instance state; Configuration accessed via property per call",
+        "Correct HMAC computed over new body bytes not original body bytes"
+      ],
+      "failureModes": [
+        "Wrong namespace for BaseTransactionProcessor (must be QaaS.Framework.SDK.Hooks.Processor)",
+        "Using NoConfiguration instead of typed config record (CS0246 trap)",
+        "Signing original body instead of mutated body (wrong HMAC)",
+        "Non-nullable config properties without [Required] (validation silently skips)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-003",
+      "title": "Author HmacSignatureAssertion in the runner project",
+      "skill": "author-custom-hook",
+      "priority": 2,
+      "dependsOn": [
+        "T-001"
+      ],
+      "factBaseSlices": [
+        "s04",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/HmacSignatureAssertion.cs"
+        ],
+        "edit": []
+      },
+      "description": "Write Runner/HmacSignatureAssertion.cs. First define: public record HmacSignatureConfig { [Required] public string? HmacSecret { get; set; } [Required] public string? OutputName { get; set; } } using System.ComponentModel.DataAnnotations. Then write: public class HmacSignatureAssertion : BaseAssertion<HmacSignatureConfig> in namespace Runner. Required usings: QaaS.Framework.SDK.Hooks.Assertion, QaaS.Framework.SDK.Session.SessionDataObjects, QaaS.Framework.SDK.DataSourceObjects, QaaS.Framework.SDK.Extensions, System.Collections.Immutable, System.Security.Cryptography, System.Text, System.Text.Json, System.Text.Json.Nodes. Override: public override bool Assert(IImmutableList<SessionData> sessionDataList, IImmutableList<DataSource> dataSourceList). CRITICAL output type (FB s13#27): with OutputDeserialize: Json each output Body is a System.Text.Json.Nodes value (JsonObject), NOT JsonElement -- CastCommunicationData<JsonElement>() goes BROKEN at run time with \"Failed to cast data item\". Body: (1) var output = sessionDataList.AsSingle().GetOutputByName(Configuration!.OutputName!).CastCommunicationData<JsonObject>(); (2) hermetic guard: if (!output.Data.Any()) { AssertionMessage = \"No outputs to verify\"; AssertionTrace = \"No outputs received\"; return false; } (3) var violations = new List<string>(); foreach (var item in output.Data) { string payloadB64 = item.Body[\"payload\"]!.GetValue<string>(); string sigB64 = item.Body[\"signature\"]!.GetValue<string>(); byte[] payloadBytes = Convert.FromBase64String(payloadB64); byte[] sigBytes = Convert.FromBase64String(sigB64); using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(Configuration!.HmacSecret!)); byte[] expected = hmac.ComputeHash(payloadBytes); if (!expected.SequenceEqual(sigBytes)) violations.Add($\"HMAC mismatch on item\"); } (4) AssertionMessage = violations.Count == 0 ? \"All HMAC signatures verified\" : $\"{violations.Count} signature(s) failed\"; AssertionTrace = string.Join(\"\\n\", violations); return violations.Count == 0. Configuration nullable ctor is acceptable; do not add extra constructors.",
+      "verify": [
+        {
+          "cmd": "dotnet build -c Release",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        },
+        {
+          "cmd": "Select-String -Path Runner\\HmacSignatureAssertion.cs -Pattern 'BaseAssertion<' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet build exits 0 with HmacSignatureAssertion present",
+        "Class inherits BaseAssertion<HmacSignatureConfig>",
+        "AssertionMessage and AssertionTrace are set before returning"
+      ],
+      "rubric": [
+        "Uses CastCommunicationData<JsonElement> to access typed bodies",
+        "HMAC recomputed independently over payload bytes decoded from the output",
+        "All violations collected before returning; AssertionTrace lists each failure"
+      ],
+      "failureModes": [
+        "Implementing IAssertion directly instead of inheriting BaseAssertion<T>",
+        "Using wrong extension namespace for AsSingle/GetOutputByName (QaaS.Framework.SDK.Extensions)",
+        "Forgetting to set AssertionTrace (no diagnostic info on failure)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-004",
+      "title": "Author mocker YAML wiring the processor on port 8231",
+      "skill": "author-mocker-yaml",
+      "priority": 3,
+      "dependsOn": [
+        "T-002"
+      ],
+      "factBaseSlices": [
+        "s03",
+        "s05",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Mocker/svc.mocker.yaml"
+        ],
+        "edit": []
+      },
+      "description": "Create Mocker/svc.mocker.yaml. Structure: Servers: one entry Name: HmacServer, Http: Port: 8231. Endpoints: one entry Name: ProcessEndpoint, Path: /process (KEEP the leading slash on the mocker Path field -- only the runner Route omits it), Method: POST. Action: Stub with Processor: SignedMutateProcessor and ProcessorConfiguration: HmacSecret: h132-test-secret, MutateField: id, MutateValue: '42'. CRITICAL: use the key ProcessorConfiguration (not TransactionData -- s13#1 drift trap; TransactionData is the outdated key). The processor class name in the stub must exactly match the C# class name SignedMutateProcessor. Route/path must be all-lowercase: /process. Do NOT configure any RabbitMQ topology or storage. Verify the mocker YAML with dotnet run template to confirm no 'not found in' output.",
+      "verify": [
+        {
+          "cmd": "dotnet run -c Release -- template svc.mocker.yaml",
+          "cwd": "Mocker",
+          "expectExitCode": 0,
+          "expectOutputNotContains": "not found in",
+          "timeoutSec": 300
+        }
+      ],
+      "acceptanceCriteria": [
+        "Template verification exits 0",
+        "No 'not found in' warnings about processor name",
+        "Port is 8231"
+      ],
+      "rubric": [
+        "ProcessorConfiguration key used (not TransactionData)",
+        "Path has leading slash /process; all lowercase",
+        "Processor class name matches exactly"
+      ],
+      "failureModes": [
+        "Using TransactionData instead of ProcessorConfiguration (s13#1 drift)",
+        "Processor name typo causes silent null lookup",
+        "Port not set to 8231"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-005",
+      "title": "Author runner YAML, data file, and hermetic count guard",
+      "skill": "author-runner-yaml",
+      "priority": 4,
+      "dependsOn": [
+        "T-003",
+        "T-004"
+      ],
+      "factBaseSlices": [
+        "s02",
+        "s03",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/run.qaas.yaml",
+          "Runner/TestData/signed-payload.json"
+        ],
+        "edit": []
+      },
+      "description": "Create Runner/TestData/signed-payload.json with content: {\"b64\":\"eyJpZCI6MX0=\"} where eyJpZCI6MX0= is the base64 encoding of the JSON string {\"id\":1}. Create Runner/run.qaas.yaml with EXACTLY this verified shape. MetaData: Team: Smoke, System: H132. Storages: list entry \"- FileSystem: { Path: ./session-data }\" (s13#2). DataSources: one entry with Name: SignedPayload, Generator: FromFileSystem, GeneratorConfiguration: { DataArrangeOrder: AsciiAsc, FileSystem: { Path: TestData } } (NO Pattern key and NO Type/Path/DataSourceType keys -- s13#20/s13#22), PLUS sibling key Deserialize: { Deserializer: Json } at the DataSource level. The Deserialize block is REQUIRED (FB s13#26): FromFileSystem yields raw file byte[] and InputSerialize: Json would otherwise base64-wrap the bytes into a quoted JSON string on the wire; Deserialize: Json decodes the file into a JSON node so the real JSON object is sent. Sessions: one session Name: HmacRoundTrip, Transactions: one entry Name: Transaction, TimeoutMs: 5000, DataSourceNames: [SignedPayload] (plural list -- s13#3), Http: { BaseAddress: http://127.0.0.1, Port: 8231, Route: process (ALL-LOWERCASE, NO leading slash -- s13#5/5b), Method: Post }, InputSerialize: { Serializer: Json }, OutputDeserialize: { Deserializer: Json }. Assertions: (1) Name: CountGuard, Assertion: HermeticByExpectedOutputCount, SessionNames: [HmacRoundTrip], AssertionConfiguration: { OutputNames: [Transaction], ExpectedCount: 1 } (s13#12 -- count guard prevents vacuous pass). (2) Name: HmacCheck, Assertion: HmacSignatureAssertion, SessionNames: [HmacRoundTrip], AssertionConfiguration: { HmacSecret: h132-test-secret, OutputName: Transaction }. Ensure the runner YAML file is added to the csproj with CopyToOutputDirectory Always.",
+      "verify": [
+        {
+          "cmd": "dotnet run -c Release -- template run.qaas.yaml",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "expectOutputNotContains": "not found in",
+          "timeoutSec": 300
+        }
+      ],
+      "acceptanceCriteria": [
+        "Template verification exits 0",
+        "No 'not found in' warnings",
+        "HermeticByExpectedOutputCount guard present with ExpectedCount: 1",
+        "Route is all-lowercase with no leading slash"
+      ],
+      "rubric": [
+        "DataSourceNames plural key with list value (s13#3)",
+        "Route: process (not /process) on runner side",
+        "Both assertions wired by exact class names"
+      ],
+      "failureModes": [
+        "DataSourceName singular key (s13#3 -- config rejected silently)",
+        "Route: /process with leading slash causes 404 (s13#5)",
+        "Omitting HermeticByExpectedOutputCount -- zero outputs passes vacuously (s13#12)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-006",
+      "title": "Run live end-to-end gate: mocker + runner pipeline",
+      "skill": "run-and-collect",
+      "priority": 5,
+      "dependsOn": [
+        "T-005"
+      ],
+      "factBaseSlices": [
+        "s06",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [],
+        "edit": []
+      },
+      "description": "Execute the full H132 end-to-end verification: launch the mocker as a background process from the Mocker directory, poll TCP port 8231 until it accepts connections (up to 40 attempts at 2-second intervals, exit 9 on timeout), then run the runner from the Runner directory and capture its exit code. After the runner exits, force-stop the mocker process. The runner exits 0 only when both HermeticByExpectedOutputCount (count=1) and HmacSignatureAssertion both pass. This confirms the full chain: runner sends base64 JSON to mocker; mocker decodes, mutates id to 42, computes HMAC; runner assertion recomputes HMAC and verifies signature. Start mocker: Start-Process dotnet with -ArgumentList run,-c,Release,--,run,svc.mocker.yaml and -WorkingDirectory ..\\ Mocker. Run runner: dotnet run -c Release -- run run.qaas.yaml from Runner/ cwd.",
+      "verify": [
+        {
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','svc.mocker.yaml' -WorkingDirectory '..\\Mocker' -PassThru; $ok=$false; foreach($i in 1..40){ try{(New-Object Net.Sockets.TcpClient('127.0.0.1',8231)).Close();$ok=$true;break}catch{Start-Sleep 2}}; if(-not $ok){Stop-Process -Id $m.Id -Force; exit 9}; dotnet run -c Release -- run run.qaas.yaml; $code=$LASTEXITCODE; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "acceptanceCriteria": [
+        "Runner exits 0 with both assertions passing",
+        "Mocker started and stopped cleanly",
+        "HmacSignatureAssertion verifies HMAC correctness"
+      ],
+      "rubric": [
+        "TCP readiness poll used before runner starts",
+        "Mocker process stopped after runner completes",
+        "Exit code propagated from runner"
+      ],
+      "failureModes": [
+        "Starting runner before mocker is ready (connection refused)",
+        "Not stopping mocker process on exit (port remains bound)",
+        "HMAC secret mismatch between mocker YAML and runner YAML"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

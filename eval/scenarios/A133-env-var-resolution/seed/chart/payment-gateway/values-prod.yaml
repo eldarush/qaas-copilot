@@ -1,0 +1,5 @@
+replicaCount: 2
+
+env:
+  GATEWAY_URL: "https://prod.gateway.io"
+  MAX_RETRIES: "5"

@@ -1,0 +1,67 @@
+{
+  "tasks": [
+    {
+      "dependsOn": [],
+      "id": "T-001",
+      "notes": "",
+      "factBaseSlices": [
+        "s06",
+        "s10",
+        "s13",
+        "s01"
+      ],
+      "files": {
+        "create": [
+          "DIAGNOSIS.md"
+        ],
+        "edit": [
+          "Runner/Runner.csproj"
+        ]
+      },
+      "title": "Diagnose, repair and verify the suite",
+      "skill": "diagnose-failure",
+      "docPages": [],
+      "description": "The end-to-end suite fails: the runner crashes on startup with a hosted-service dependency-injection error (exit code -532462766) before any transaction runs. The fault is a single trap (s13#8) in Runner/Runner.csproj: the runner yaml uses 'Generator: FromFileSystem' but Runner.csproj does not reference the QaaS.Common.Generators package that provides that generator, so DI cannot construct it. Reproduce the failure, apply the MINIMAL fix to Runner/Runner.csproj (add a PackageReference to QaaS.Common.Generators with Version='*' - change nothing else; do NOT edit the yaml or rename anything), write DIAGNOSIS.md citing s13#8 explicitly, and run the e2e verify gate.",
+      "priority": 1,
+      "rubric": [
+        "Diagnosis is complete and references the exact trap"
+      ],
+      "verify": [
+        {
+          "timeoutSec": 60,
+          "cmd": "Select-String -Path DIAGNOSIS.md -Pattern 's13#8' -Quiet",
+          "expectOutputContains": "True"
+        },
+        {
+          "cwd": "Runner",
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','test.mocker.yaml' -WorkingDirectory '..\\Mocker' -PassThru; $ok = $false; foreach ($i in 1..40) { try { (New-Object Net.Sockets.TcpClient('127.0.0.1', 8122)).Close(); $ok = $true; break } catch { Start-Sleep 2 } }; if (-not $ok) { Stop-Process -Id $m.Id -Force; exit 9 }; dotnet run -c Release -- run test.qaas.yaml; $code = $LASTEXITCODE; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "DIAGNOSIS.md cites s13#8",
+        "E2E runs successfully green (runner no longer crashes at startup)"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Editing the yaml instead of the csproj",
+        "Rewriting the csproj from scratch"
+      ]
+    }
+  ],
+  "sprintId": "D05",
+  "factBaseSlices": [
+    "s06",
+    "s10",
+    "s13"
+  ],
+  "goalOneSentence": "Diagnose and fix missing-package crash caused by trap s13#8.",
+  "nonGoals": [
+    "rewriting docker files",
+    "editing the runner yaml"
+  ],
+  "feature": "missing-package-ftl",
+  "portContract": "This sprint's mocker MUST listen on HTTP port 8122. Every runner Transaction MUST target http://127.0.0.1:8122. Do NOT use the 8080 default from Fact Base examples - use 8122 exactly."
+}

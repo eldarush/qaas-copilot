@@ -1,0 +1,74 @@
+{
+  "tasks": [
+    {
+      "dependsOn": [],
+      "id": "T-001",
+      "notes": "",
+      "factBaseSlices": [
+        "s06",
+        "s10",
+        "s13",
+        "s02"
+      ],
+      "files": {
+        "create": [
+          "DIAGNOSIS.md"
+        ],
+        "edit": [
+          "Runner/test.qaas.yaml"
+        ]
+      },
+      "title": "Diagnose, repair and verify the suite",
+      "skill": "diagnose-failure",
+      "docPages": [],
+      "description": "A reviewer flagged this suite as a VACUOUS PASS risk (trap s13#13): the only assertion is HttpStatus, which reports success even when ZERO outputs arrive ('all configured outputs had status 200' is vacuously true for an empty set). So the suite would stay green even if the mocker sent nothing and the service was completely down. The traffic currently works (the mocker returns 200), but the suite does not actually prove any response arrived. Apply the MINIMAL fix to Runner/test.qaas.yaml: ADD a HermeticByExpectedOutputCount guard assertion (SessionNames: [Session1], AssertionConfiguration: { OutputNames: [Trans1], ExpectedCount: 1 }) so the suite fails if the response count is wrong. Do NOT change the route, port, stub, or HttpStatus assertion. Write DIAGNOSIS.md citing s13#13 explicitly, then run the e2e verify gate (it must stay green with exactly 1 output).",
+      "priority": 1,
+      "rubric": [
+        "Diagnosis explains the vacuous-pass risk and cites s13#13"
+      ],
+      "verify": [
+        {
+          "timeoutSec": 60,
+          "cmd": "Select-String -Path DIAGNOSIS.md -Pattern 's13#13' -Quiet",
+          "expectOutputContains": "True"
+        },
+        {
+          "timeoutSec": 60,
+          "cmd": "Select-String -Path Runner\\test.qaas.yaml -Pattern 'HermeticByExpectedOutputCount' -Quiet",
+          "expectOutputContains": "True"
+        },
+        {
+          "cwd": "Runner",
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','test.mocker.yaml' -WorkingDirectory '..\\Mocker' -PassThru; $ok = $false; foreach ($i in 1..40) { try { (New-Object Net.Sockets.TcpClient('127.0.0.1', 8121)).Close(); $ok = $true; break } catch { Start-Sleep 2 } }; if (-not $ok) { Stop-Process -Id $m.Id -Force; exit 9 }; dotnet run -c Release -- run test.qaas.yaml; $code = $LASTEXITCODE; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "DIAGNOSIS.md cites s13#13",
+        "Runner yaml now has a HermeticByExpectedOutputCount guard",
+        "E2E still runs green (exactly 1 output)"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Using the wrong guard key (ExpectedOutputCount instead of ExpectedCount)",
+        "Changing the route/port/stub"
+      ]
+    }
+  ],
+  "sprintId": "D04",
+  "factBaseSlices": [
+    "s06",
+    "s10",
+    "s13"
+  ],
+  "goalOneSentence": "Harden a vacuous-pass suite by adding the hermetic output-count guard (trap s13#13).",
+  "nonGoals": [
+    "rewriting docker files",
+    "editing the mocker",
+    "changing the route or port"
+  ],
+  "feature": "vacuous-pass-hunt",
+  "portContract": "This sprint's mocker MUST listen on HTTP port 8121. Every runner Transaction MUST target http://127.0.0.1:8121. Do NOT use the 8080 default - use 8121 exactly."
+}

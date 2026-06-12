@@ -4,8 +4,9 @@ This guide governs all interactions within this workspace when using **Claude Co
 
 > **The product is the `qaas` plugin** under `plugins/qaas/` (skills, subagents, slash
 > commands, offline Fact Base). End users install it via the marketplace — see
-> [INSTALL.md](./INSTALL.md). This `CLAUDE.md` mirrors the always-on `qaas-overview` skill, so
-> opening this repo in Claude Code gives the same guidance the plugin injects.
+> [INSTALL.md](./INSTALL.md). This `CLAUDE.md` is the guide for working **on** this repo and
+> mirrors the always-on `qaas-overview` skill. `platform/` and `eval/` are the
+> **maintainer-only** evaluation harness used to prove the plugin against 50 scenarios.
 
 ---
 
@@ -24,13 +25,16 @@ When the `qaas` plugin is installed, use its native slash commands (no PowerShel
 The single configuration knob for any environment is **`QAAS_DOCS_URL`** (default
 `https://docs.qaas.online`); point it at your local mirror in airgapped setups.
 
+*Maintainer-only* (evaluation harness, not used by end users): `platform\harness\new-sprint.ps1`,
+`platform\harness\loop.ps1` — these drive the weak-model-vs-strong-evaluator regression loop.
+
 ---
 
 ## 2. QaaS Test-Authoring Constitution
 
 Every code change or test written must adhere to these non-negotiable articles:
 
-1. **DOCS-OR-SILENCE (NON-NEGOTIABLE)**: Every QaaS field, type, flag, or behavior you use must be explicitly backed by the offline Fact Base (`/qaas:fact sNN`, bundled in `plugins/qaas/factbase/`) or retrieved live via `/qaas:docs`. If it is not in front of you, stop and ask the user. Never guess names, signatures, or defaults.
+1. **DOCS-OR-SILENCE (NON-NEGOTIABLE)**: Every QaaS field, type, flag, or behavior you use must be explicitly backed by the offline Fact Base (`/qaas:fact sNN`, source in `platform/factbase/`) or retrieved live via `/qaas:docs`. If it is not in front of you, stop and ask the user. Never guess names, signatures, or defaults.
 2. **DRIFT-AWARE**: The official docs are outdated in several places. Refer to the **Doc Drift Table** below to avoid common traps.
 3. **EVIDENCE-BEFORE-DONE**: A task is never done because you believe it is. Verification is strictly empirical: execute build/test commands and match real output against the sprint rubric.
 4. **ONE THING PER TASK**: Keep scope surgical. If a task spans >5 files or cannot be stated in one sentence, split it.
@@ -48,7 +52,7 @@ Every code change or test written must adhere to these non-negotiable articles:
 
 ## 3. Doc-Drift & Outdated Docs Reference (Top Traps)
 
-> The complete, authoritative drift table lives in the Fact Base, **§13 (`plugins/qaas/factbase/s13-doc-drift.md`) — 29 LAB-verified entries**. The most common ones are reproduced here.
+> The complete, authoritative drift table lives in the Fact Base, **§13 (`platform/factbase/s13-doc-drift.md`) — 29 LAB-verified entries**. The most common ones are reproduced here.
 
 Use this table as your source of truth when writing configurations:
 
@@ -73,28 +77,29 @@ Use this table as your source of truth when writing configurations:
 ## 4. QaaS Skills Integration (19 Task Guides)
 
 When the plugin is installed, these 19 task skills auto-load by description — Claude Code invokes
-the right one for the task. They live under `plugins/qaas/skills/<name>/SKILL.md`. Each carries
-an execution blueprint, done-rubric, and failure-mode checklist:
+the right one for the task. Their canonical source lives under `platform/skills/<name>/SKILL.md`
+(copied into `plugins/qaas/skills/` for distribution). Each carries an execution blueprint,
+done-rubric, and failure-mode checklist:
 
-1. **`plan-test-sprint`**: Map out goal to priority-ordered `sprint.json`.
-2. **`scaffold-runner-project`**: Scaffolds Runner `.csproj` + NuGet configurations.
-3. **`scaffold-mocker-project`**: Scaffolds Mocker `.csproj` with ASP.NET base.
-4. **`author-runner-yaml`**: Formulates `*.qaas.yaml` (sessions, asserts, storage).
-5. **`author-mocker-yaml`**: Formulates `*.mocker.yaml` (servers, stubs, processors).
-6. **`choose-action-type`**: Maps intent to Transaction/Publisher/Consumer/Probe.
-7. **`pick-generator`**: Selection and layout of the 11 built-in generators.
-8. **`pick-assertion`**: Selection and layout of the 11 built-in assertions.
-9. **`author-custom-hook`**: Template structures for compilation-ready C# hooks.
-10. **`run-and-collect`**: CLI flags, Allure output collection, and execution.
-11. **`diagnose-failure`**: Error signatures and quick-fix mapping index.
-12. **`build-mocker-image`**: Custom Docker multi-stage mocker images.
-13. **`offline-packaging`**: Securing private Artifactory routing and NuGet configurations.
-14. **`verify-done`**: Unified fail-closed completion checklist before task completion.
-15. **`validate-compatibility`**: Validate every QaaS field/version against Fact Base; reject deprecated drift-left-column forms and non-existent features.
-16. **`analyze-sut-repo`**: Extract endpoints, schemas, env config, and transformation contracts from SUT source repos with file:line citations.
-17. **`analyze-helm-k8s`**: Derive effective runtime config from Helm charts / K8s manifests using full values-layer resolution.
-18. **`analyze-existing-tests`**: Inventory existing tests and produce a coverage-gap diff (create/repair/update) against the SUT surface catalog.
-19. **`document-test-project`**: Produce a structured README for a finished QaaS test project.
+1. **`plan-test-sprint`** (`platform/skills/plan-test-sprint/SKILL.md`): Map out goal to priority-ordered `sprint.json`.
+2. **`scaffold-runner-project`** (`platform/skills/scaffold-runner-project/SKILL.md`): Scaffolds Runner `.csproj` + NuGet configurations.
+3. **`scaffold-mocker-project`** (`platform/skills/scaffold-mocker-project/SKILL.md`): Scaffolds Mocker `.csproj` with ASP.NET base.
+4. **`author-runner-yaml`** (`platform/skills/author-runner-yaml/SKILL.md`): Formulates `*.qaas.yaml` (sessions, asserts, storage).
+5. **`author-mocker-yaml`** (`platform/skills/author-mocker-yaml/SKILL.md`): Formulates `*.mocker.yaml` (servers, stubs, processors).
+6. **`choose-action-type`** (`platform/skills/choose-action-type/SKILL.md`): Maps intent to Transaction/Publisher/Consumer/Probe.
+7. **`pick-generator`** (`platform/skills/pick-generator/SKILL.md`): Selection and layout of the 11 built-in generators.
+8. **`pick-assertion`** (`platform/skills/pick-assertion/SKILL.md`): Selection and layout of the 11 built-in assertions.
+9. **`author-custom-hook`** (`platform/skills/author-custom-hook/SKILL.md`): Template structures for compilation-ready C# hooks.
+10. **`run-and-collect`** (`platform/skills/run-and-collect/SKILL.md`): CLI flags, Allure output collection, and execution.
+11. **`diagnose-failure`** (`platform/skills/diagnose-failure/SKILL.md`): Error signatures and quick-fix mapping index.
+12. **`build-mocker-image`** (`platform/skills/build-mocker-image/SKILL.md`): Custom Docker multi-stage mocker images.
+13. **`offline-packaging`** (`platform/skills/offline-packaging/SKILL.md`): Securing private Artifactory routing and NuGet configurations.
+14. **`verify-done`** (`platform/skills/verify-done/SKILL.md`): Unified fail-closed completion checklist before task completion.
+15. **`validate-compatibility`** (`plugins/qaas/skills/validate-compatibility/SKILL.md`): Validate every QaaS field/version against Fact Base; reject deprecated drift-left-column forms and non-existent features.
+16. **`analyze-sut-repo`** (`platform/skills/analyze-sut-repo/SKILL.md`): Extract endpoints, schemas, env config, and transformation contracts from SUT source repos with file:line citations.
+17. **`analyze-helm-k8s`** (`platform/skills/analyze-helm-k8s/SKILL.md`): Derive effective runtime config from Helm charts / K8s manifests using full values-layer resolution.
+18. **`analyze-existing-tests`** (`platform/skills/analyze-existing-tests/SKILL.md`): Inventory existing tests and produce a coverage-gap diff (create/repair/update) against the SUT surface catalog.
+19. **`document-test-project`** (`platform/skills/document-test-project/SKILL.md`): Produce a structured README for a finished QaaS test project.
 
 ---
 
@@ -104,4 +109,3 @@ an execution blueprint, done-rubric, and failure-mode checklist:
 * **C# Records**: Custom configuration types should use immutable records with required properties.
 * **Hermetic Runs**: Use unique port mappings and dynamic ports to prevent execution conflicts.
 * **Deterministic Tests**: Add delay offsets or check-retry mechanisms for async messaging tests rather than simple Sleep statements.
-

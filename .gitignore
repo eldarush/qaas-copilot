@@ -1,6 +1,5 @@
 work/
 tmp/
-.qaas-harness/
 *.log
 *.tmp
 __pycache__/

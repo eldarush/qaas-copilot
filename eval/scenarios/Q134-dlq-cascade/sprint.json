@@ -1,0 +1,240 @@
+﻿{
+    "sprintId":  "Q134",
+    "feature":  "dlq-cascade",
+    "goalOneSentence":  "Verify that a QaaS runner YAML publishes one message through a three-level RabbitMQ dead-letter-exchange cascade and consumes the original body unchanged at the final DLQ2 consumer queue.",
+    "nonGoals":  [
+                     "mocker project",
+                     "HTTP endpoints",
+                     "authentication",
+                     "dynamic exchange naming"
+                 ],
+    "factBaseSlices":  [
+                           "s02",
+                           "s09",
+                           "s11",
+                           "s13"
+                       ],
+    "tasks":  [
+                  {
+                      "id":  "T-001",
+                      "title":  "Scaffold runner-only project for DLQ cascade",
+                      "skill":  "scaffold-runner-project",
+                      "description":  "Create a .NET 10 console project at Runner/Runner.csproj targeting net10.0. The csproj must reference exactly three packages: QaaS.Runner 4.5.1, QaaS.Common.Generators 3.5.1 (the YAML will use FromFileSystem to feed the publisher), and QaaS.Common.Assertions 3.5.1 (built-in hermetic count and content assertions). Do NOT add QaaS.Common.Probes, QaaS.Common.Processors, or QaaS.Mocker. The RabbitMQ topology (exchanges, queues, bindings) is pre-created by topology.ps1 (at the workspace root) before the runner starts, so no QaaS topology probes are needed and QaaS.Common.Probes must NOT be referenced. Program.cs must contain exactly the one-liner: QaaS.Runner.Bootstrap.New(args).Run(); with no additional logic. Confirm the project builds cleanly with dotnet build -c Release from the Runner directory.",
+                      "priority":  1,
+                      "dependsOn":  [
+
+                                    ],
+                      "factBaseSlices":  [
+                                             "s01",
+                                             "s13"
+                                         ],
+                      "docPages":  [
+
+                                   ],
+                      "files":  {
+                                    "create":  [
+                                                   "Runner/Runner.csproj",
+                                                   "Runner/Program.cs"
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "verify":  [
+                                     {
+                                         "cmd":  "dotnet build -c Release",
+                                         "cwd":  "Runner",
+                                         "timeoutSec":  300,
+                                         "expectExitCode":  0
+                                     }
+                                 ],
+                      "acceptanceCriteria":  [
+                                                 "dotnet build exits 0 in Runner directory",
+                                                 "csproj references QaaS.Runner 4.5.1 + Common.Generators 3.5.1 + Common.Assertions 3.5.1",
+                                                 "Program.cs uses exact Bootstrap one-liner"
+                                             ],
+                      "rubric":  [
+                                     "Runner.csproj targets net10.0 with QaaS.Runner 4.5.1",
+                                     "Program.cs uses exact one-liner Bootstrap.New(args).Run()",
+                                     "No QaaS.Common.Probes or Mocker reference in csproj"
+                                 ],
+                      "failureModes":  [
+                                           "Wrong NuGet version on QaaS.Runner",
+                                           "QaaS.Common.Probes added unnecessarily causing version mismatch",
+                                           "Mocker project accidentally scaffolded"
+                                       ],
+                      "iterations":  0,
+                      "passes":  false,
+                      "notes":  ""
+                  },
+                  {
+                      "id":  "T-002",
+                      "title":  "Author test data and runner YAML for DLQ cascade",
+                      "skill":  "author-runner-yaml",
+                      "description":  "Create Runner/TestData/messages/payload.json containing exactly ONE JSON OBJECT (not an array): {\"id\":\"cascade-1\",\"value\":\"dlq-test\"} - an array root would break the CSV JSONPath $.id. Create Runner/TestData/expected/expected.csv with header id,value and one data row cascade-1,dlq-test (the CSV lives in its OWN subfolder TestData/expected so neither DataSource picks up the other files - FromFileSystem reads ALL files under Path, FB s13#20). Create Runner/q134.qaas.yaml with: Storages [- FileSystem: {Path: ./session-data}] (FB s13#2); EXACTLY TWO DataSources (entry = Name/Generator/GeneratorConfiguration only, FB s13#22): (a) Name payload, Generator FromFileSystem, GeneratorConfiguration {DataArrangeOrder: AsciiAsc, FileSystem: {Path: TestData/messages}}; (b) Name expected-csv, same shape with FileSystem {Path: TestData/expected}. EXACTLY ONE Session named dlq-cascade containing BOTH the Consumer and the Publisher (FB s13#24: default action stages make Consumers bind at stage 0 before Publishers at stage 1; separate sessions would let the consumer session finish before the publisher session even starts). Consumer Name dlq2-msg: TimeoutMs 500, InitialTimeoutMs 30000 (covers the ~1000ms cascade plus broker latency), RabbitMq {Host: 127.0.0.1, Port: 5672, Username: admin, Password: admin, ExchangeName: q134-dlx2-ex, RoutingKey: source} (FB s13#28: a Consumer MUST set ExchangeName - QueueName alone binds on the default exchange and dies with ACCESS_REFUSED; the dead-lettered message keeps its ORIGINAL routing key source, FB s13#29), and Deserialize {Deserializer: Json}. Publisher Name src-msg: DataSourceNames [payload] (REQUIRED, FB s13#3), RabbitMq {Host: 127.0.0.1, Port: 5672, Username: admin, Password: admin, ExchangeName: q134-src-ex, RoutingKey: source}. Assertions on SessionNames [dlq-cascade]: (1) Name dlq2-hermetic, Assertion HermeticByExpectedOutputCount, AssertionConfiguration {OutputNames: [dlq2-msg], ExpectedCount: 1}, SaveSessionData true; (2) Name CsvContentCheck, Assertion OutputContentByExpectedCsvResults, DataSourceNames [expected-csv] (assertion-level key - the CSV comes from a DataSource; there is NO ExpectedResultsPath key), AssertionConfiguration {OutputName: dlq2-msg, DataSourceName: expected-csv, ColumnNameToFieldPathMap: {id: {Path: $.id, FieldValidationConfig: {Type: ExactValue}}, value: {Path: $.value, FieldValidationConfig: {Type: ExactValue}}}} (docs assertions/availableAssertions/OutputContentByExpectedCsvResults: required keys ColumnNameToFieldPathMap + OutputName). The topology (q134-source-q TTL=500ms dead-lettering to q134-dlx1-ex, q134-dlq1-q TTL=500ms dead-lettering to q134-dlx2-ex, q134-dlq2-q; all direct exchanges bound with routing key source) is pre-created by topology.ps1 at the workspace root; do NOT add topology probes. Names must match topology.ps1 exactly.",
+                      "priority":  2,
+                      "dependsOn":  [
+                                        "T-001"
+                                    ],
+                      "factBaseSlices":  [
+                                             "s02",
+                                             "s09",
+                                             "s11",
+                                             "s13"
+                                         ],
+                      "docPages":  [
+
+                                   ],
+                      "files":  {
+                                    "create":  [
+                                                   "Runner/TestData/messages/payload.json",
+                                                   "Runner/TestData/expected/expected.csv",
+                                                   "Runner/q134.qaas.yaml"
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "verify":  [
+                                     {
+                                         "cmd":  "dotnet run -c Release -- template q134.qaas.yaml",
+                                         "cwd":  "Runner",
+                                         "timeoutSec":  300,
+                                         "expectExitCode":  0,
+                                         "expectOutputNotContains":  "not found in"
+                                     }
+                                 ],
+                      "acceptanceCriteria":  [
+                                                 "dotnet run template exits 0 without \u0027not found in\u0027 errors",
+                                                 "q134.qaas.yaml declares dlq2-consumer at Stage 0 and src-publisher at Stage 1",
+                                                 "Consumer has InitialTimeoutMs 5000 and TimeoutMs 500",
+                                                 "HermeticByExpectedOutputCount ExpectedCount 1 on dlq2-consumer session",
+                                                 "Publisher uses DataSourceNames [payload]"
+                                             ],
+                      "rubric":  [
+                                     "Consumer InitialTimeoutMs covers cascade TTL 1000ms with margin (\u003e=3000ms)",
+                                     "Consumer TimeoutMs present (required field; missing causes startup error)",
+                                     "HermeticByExpectedOutputCount ExpectedCount 1 with SaveSessionData true",
+                                     "OutputContentByExpectedCsvResults verifies message body preservation through cascade",
+                                     "No topology probes in YAML (topology pre-created by topology.ps1 (at the workspace root))",
+                                     "Publisher DataSourceNames present (s13 trap 3)"
+                                 ],
+                      "failureModes":  [
+                                           "InitialTimeoutMs too short causing zero outputs and vacuous pass (s13 trap 13)",
+                                           "TimeoutMs missing on Consumer causing runner startup error",
+                                           "DataSourceNames missing on Publisher causing zero messages published",
+                                           "Exchange name q134-src-ex misspelled causing NOT_FOUND routing error"
+                                       ],
+                      "iterations":  0,
+                      "passes":  false,
+                      "notes":  ""
+                  },
+                  {
+                      "id":  "T-003",
+                      "title":  "Validate runner YAML template gate",
+                      "skill":  "author-runner-yaml",
+                      "description":  "Run the QaaS template validation command against Runner/q134.qaas.yaml to confirm the YAML is structurally valid before attempting a live run. Execute dotnet run -c Release -- template q134.qaas.yaml from the Runner directory. The command must exit 0 and must NOT print any line containing \u0027not found in\u0027. If the template gate fails, inspect the output to identify missing or misspelled configuration keys (s13 trap 11: typo keys are silently ignored at runtime but the template command may flag schema errors). Fix any reported issues in q134.qaas.yaml before proceeding to the live run task. Common issues include wrong assertion key names, missing required Consumer fields, or incorrect DataSources path references.",
+                      "priority":  3,
+                      "dependsOn":  [
+                                        "T-002"
+                                    ],
+                      "factBaseSlices":  [
+                                             "s02",
+                                             "s13"
+                                         ],
+                      "docPages":  [
+
+                                   ],
+                      "files":  {
+                                    "create":  [
+
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "verify":  [
+                                     {
+                                         "cmd":  "dotnet run -c Release -- template q134.qaas.yaml",
+                                         "cwd":  "Runner",
+                                         "timeoutSec":  300,
+                                         "expectExitCode":  0,
+                                         "expectOutputNotContains":  "not found in"
+                                     }
+                                 ],
+                      "acceptanceCriteria":  [
+                                                 "Template validation exits 0",
+                                                 "No \u0027not found in\u0027 errors in output"
+                                             ],
+                      "rubric":  [
+                                     "Template exits 0 confirming YAML schema is valid"
+                                 ],
+                      "failureModes":  [
+                                           "Misspelled assertion key silently accepted by runner but template flags it",
+                                           "Missing Consumer TimeoutMs causes validation error"
+                                       ],
+                      "iterations":  0,
+                      "passes":  false,
+                      "notes":  ""
+                  },
+                  {
+                      "id":  "T-004",
+                      "title":  "Live end-to-end cascade run and write RUN-REPORT.md",
+                      "skill":  "run-and-collect",
+                      "description":  "Execute the full end-to-end cascade run: first run topology.ps1 (at the workspace root) to create the three-level DLQ topology (q134-source-q TTL=500ms-\u003eq134-dlx1-ex, q134-dlq1-q TTL=500ms-\u003eq134-dlx2-ex, q134-dlq2-q), wait for it to complete successfully (exit 0), then wait 2 seconds, then execute dotnet run -c Release -- run q134.qaas.yaml from the Runner directory. The runner publishes one message to q134-src-ex (publisher action stage 1, after the consumer bound); the message dead-letters through two TTL hops in approximately 1000ms total; the dlq2-msg Consumer (same session, action stage 0, InitialTimeoutMs=30000) is already bound and receives it. Assert ExitCode=0 in runner output and runner process exits 0. After the run, create Runner/RUN-REPORT.md documenting: topology setup commands, cascade timing (2x 500ms TTL hops), expected Consumer InitialTimeoutMs rationale, s13 trap citations (trap 12 vacuous pass, trap 11 silent key ignore), and Allure artifact paths.",
+                      "priority":  4,
+                      "dependsOn":  [
+                                        "T-003"
+                                    ],
+                      "factBaseSlices":  [
+                                             "s06",
+                                             "s13"
+                                         ],
+                      "docPages":  [
+
+                                   ],
+                      "files":  {
+                                    "create":  [
+                                                   "Runner/RUN-REPORT.md"
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "verify":  [
+                                     {
+                                         "cmd":  "$t = Start-Process powershell -ArgumentList \u0027-NoProfile\u0027,\u0027-ExecutionPolicy\u0027,\u0027Bypass\u0027,\u0027-File\u0027,\u0027..\\topology.ps1\u0027 -PassThru -Wait; if ($t.ExitCode -ne 0) { exit 1 }; Start-Sleep -Seconds 2; dotnet run -c Release -- run q134.qaas.yaml",
+                                         "cwd":  "Runner",
+                                         "timeoutSec":  600,
+                                         "expectExitCode":  0,
+                                         "expectOutputContains":  "ExitCode=0"
+                                     },
+                                     {
+                                         "cmd":  "Test-Path RUN-REPORT.md",
+                                         "cwd":  "Runner",
+                                         "timeoutSec":  30,
+                                         "expectOutputContains":  "True"
+                                     }
+                                 ],
+                      "acceptanceCriteria":  [
+                                                 "topology.ps1 exits 0 creating all 3 exchanges, queues, and bindings",
+                                                 "Runner exits 0 with ExitCode=0 in output",
+                                                 "dlq2-consumer receives exactly 1 message with original body",
+                                                 "RUN-REPORT.md created in Runner directory"
+                                             ],
+                      "rubric":  [
+                                     "Runner exits 0 confirming cascade delivered message to DLQ2 consumer",
+                                     "RUN-REPORT.md present with cascade timing and trap citations"
+                                 ],
+                      "failureModes":  [
+                                           "topology.ps1 not run before runner causing NOT_FOUND exchange error",
+                                           "InitialTimeoutMs too short causing zero outputs (vacuous pass trap)",
+                                           "Wrong CWD for dotnet run command",
+                                           "Queue arguments misspelled preventing TTL from firing"
+                                       ],
+                      "iterations":  0,
+                      "passes":  false,
+                      "notes":  ""
+                  }
+              ]
+}

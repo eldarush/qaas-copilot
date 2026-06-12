@@ -1,0 +1,156 @@
+{
+    "tasks":  [
+                  {
+                      "dependsOn":  [
+
+                                    ],
+                      "id":  "T-001",
+                      "notes":  "",
+                      "factBaseSlices":  [
+                                             "s01",
+                                             "s13"
+                                         ],
+                      "files":  {
+                                    "create":  [
+                                                   "Telemetry/Telemetry.csproj",
+                                                   "Telemetry/Program.cs"
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "title":  "Scaffold runner project",
+                      "skill":  "scaffold-runner-project",
+                      "docPages":  [
+
+                                   ],
+                      "description":  "Create Telemetry/Telemetry.csproj referencing QaaS.Runner and QaaS.Common.Assertions. Program.cs has exact one line: QaaS.Runner.Bootstrap.New(args).Run(); Make sure the projects compiling of the runner hook environment completes cleanly.",
+                      "priority":  1,
+                      "rubric":  [
+                                     "Structure matches golden shape"
+                                 ],
+                      "verify":  [
+                                     {
+                                         "cmd":  "dotnet build -c Release",
+                                         "expectExitCode":  0,
+                                         "cwd":  "Telemetry",
+                                         "timeoutSec":  600
+                                     }
+                                 ],
+                      "iterations":  0,
+                      "acceptanceCriteria":  [
+                                                 "dotnet build exits 0"
+                                             ],
+                      "passes":  false,
+                      "failureModes":  [
+                                           "Wrong package names"
+                                       ]
+                  },
+                  {
+                      "dependsOn":  [
+                                        "T-001"
+                                    ],
+                      "id":  "T-002",
+                      "notes":  "",
+                      "factBaseSlices":  [
+                                             "s04",
+                                             "s13"
+                                         ],
+                      "files":  {
+                                    "create":  [
+                                                   "Telemetry/MyHook.cs"
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "title":  "Author the custom hook C# files",
+                      "skill":  "author-custom-hook",
+                      "docPages":  [
+
+                                   ],
+                      "description":  "Write MyHook.cs inside the Telemetry namespace. Base hook classes must use exact SDK generic definitions. Config properties must use nullable types with [Required] annotation and appropriate getter/setter accessors.",
+                      "priority":  2,
+                      "rubric":  [
+                                     "Proper SDK class inheritance"
+                                 ],
+                      "verify":  [
+                                     {
+                                         "cmd":  "dotnet build -c Release",
+                                         "expectExitCode":  0,
+                                         "cwd":  "Telemetry",
+                                         "timeoutSec":  600
+                                     }
+                                 ],
+                      "iterations":  0,
+                      "acceptanceCriteria":  [
+                                                 "dotnet build succeeds with new C# files"
+                                             ],
+                      "passes":  false,
+                      "failureModes":  [
+                                           "Forgetting nullable property required validation"
+                                       ]
+                  },
+                  {
+                      "dependsOn":  [
+                                        "T-002"
+                                    ],
+                      "id":  "T-003",
+                      "notes":  "",
+                      "factBaseSlices":  [
+                                             "s03",
+                                             "s05",
+                                             "s13"
+                                         ],
+                      "files":  {
+                                    "create":  [
+                                                   "Telemetry/telemetry.qaas.yaml"
+                                               ],
+                                    "edit":  [
+
+                                             ]
+                                },
+                      "title":  "Author runner YAML and verify e2e",
+                      "skill":  "author-runner-yaml",
+                      "docPages":  [
+
+                                   ],
+                      "description":  "Create telemetry.qaas.yaml referencing the hook by its class name. Assertions must target output sessions correctly, specifying correct namespaces, stub references, and session parameters as defined by the QaaS.Runner and assertion schemas.",
+                      "priority":  3,
+                      "rubric":  [
+                                     "Hook wired correctly in YAML"
+                                 ],
+                      "verify":  [
+                                     {
+                                         "cmd":  "dotnet run -c Release -- template telemetry.qaas.yaml",
+                                         "expectExitCode":  0,
+                                         "expectOutputNotContains":  "not found in",
+                                         "cwd":  "Telemetry",
+                                         "timeoutSec":  300
+                                     }
+                                 ],
+                      "iterations":  0,
+                      "acceptanceCriteria":  [
+                                                 "Template verification passes",
+                                                 "E2E run executes with no failure"
+                                             ],
+                      "passes":  false,
+                      "failureModes":  [
+                                           "Mistyping class name"
+                                       ]
+                  }
+              ],
+    "sprintId":  "C03",
+    "factBaseSlices":  [
+                           "s01",
+                           "s04",
+                           "s05",
+                           "s13",
+                           "s14"
+                       ],
+    "goalOneSentence":  "Implement and wire custom QaaS hook probe-print-time for IProbe: stage-scoped diagnostic probe.",
+    "nonGoals":  [
+                     "docker images"
+                 ],
+    "feature":  "probe-print-time"
+}

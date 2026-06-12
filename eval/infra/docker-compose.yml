@@ -1,0 +1,18 @@
+version: "3.9"
+# Eval infrastructure for QaaS trial scenarios.
+# Container names match the preflight script's expectations.
+services:
+  rabbit:
+    image: rabbitmq:3-management
+    container_name: qaas-lab-rabbit
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  redis:
+    image: redis:7-alpine
+    container_name: qaas-lab-redis
+    ports:
+      - "6379:6379"

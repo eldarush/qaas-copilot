@@ -1,0 +1,94 @@
+{
+  "sprintId": "H07",
+  "feature": "interrogation-depth",
+  "goalOneSentence": "Write QaaS tests for the inventory service.",
+  "nonGoals": [
+    "writing YAML before asking residual questions",
+    "writing any csproj",
+    "running dotnet build or run",
+    "re-asking what the seeded source code already answers"
+  ],
+  "factBaseSlices": ["s00", "s01", "s02", "s13"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Mine code for facts, write FINDINGS.md and QUESTIONS.md before any YAML",
+      "priority": 1,
+      "dependsOn": [],
+      "expectsClarification": true,
+      "skill": "plan-test-sprint",
+      "files": {
+        "create": [
+          "qaas-analysis/FINDINGS.md",
+          "qaas-analysis/QUESTIONS.md"
+        ],
+        "edit": []
+      },
+      "description": "The goal is intentionally thin: 'Write QaaS tests for the inventory service.' The working directory contains the seeded InventoryApi source at sut/InventoryApi/. Before writing any YAML or project files, you MUST follow this protocol: (1) mine the seeded source code for everything it CAN answer, (2) document those facts, (3) identify and ask what the code CANNOT answer.\n\n**Step 1 — Read all seed files**: sut/InventoryApi/Program.cs, sut/InventoryApi/Models/ReserveRequest.cs, sut/InventoryApi/InventoryApi.csproj, sut/InventoryApi/README.md.\n\n**Step 2 — Write qaas-analysis/FINDINGS.md** with ALL of the following sections:\n- **Endpoints discovered** (table: Method, Route, Request DTO, Citation). Must list all 3: GET /inventory/items, GET /inventory/items/{id}, POST /inventory/reserve with ReserveRequest DTO. Every row MUST cite the file:line from Program.cs — read the seeded file and write the ACTUAL line number where each app.MapGet/app.MapPost call appears (do not guess).\n- **Environment configuration**: INVENTORY_PORT env var, default 8085, citing Program.cs at the line with Environment.GetEnvironmentVariable.\n- **MOCK_REQUIRED: NO** — state explicitly: the InventoryApi SUT has no downstream dependencies (no database, no message broker visible in the source). A QaaS runner can call this SUT directly. No mocker is needed.\n- **QaaS session type**: HTTP Transaction sessions are appropriate (the SUT exposes HTTP endpoints).\n\n**Step 3 — Write qaas-analysis/QUESTIONS.md** with AT LEAST 4 numbered questions that the source code CANNOT answer. Required residual questions (use these or equivalent phrasings): (1) Where will the InventoryApi SUT be running during test execution — is it started manually, by CI, or via a QaaS hook? (2) What value will INVENTORY_PORT be set to in the test environment — is 8085 acceptable or will a different port be assigned? (3) What fixture data should the tests use — the in-memory items (ITM-001, ITM-002, ITM-003) are reset on restart; are there specific item IDs and quantities the tests must use? (4) What are the success criteria beyond HTTP 200 — should tests assert specific response body fields, or is a 200 status sufficient? You may add more questions about environment isolation, auth, or airgap NuGet feed URL. CONSTRAINTS: Do NOT ask 'what endpoints exist?' (answered in Program.cs). Do NOT ask 'what is the default port?' (answered in Program.cs). Do NOT produce any .qaas.yaml, .mocker.yaml, or .csproj files — those come AFTER the questions are answered. End with status line NEEDS_CLARIFICATION.",
+      "acceptanceCriteria": [
+        "qaas-analysis/FINDINGS.md exists",
+        "Contains all 3 endpoints with file:line citations",
+        "States MOCK_REQUIRED: NO",
+        "qaas-analysis/QUESTIONS.md exists",
+        "Contains at least 4 residual questions",
+        "No .qaas.yaml or .csproj files created"
+      ],
+      "factBaseSlices": ["s00", "s01", "s02", "s13"],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Test-Path qaas-analysis\\FINDINGS.md",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Test-Path qaas-analysis\\QUESTIONS.md",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\FINDINGS.md -Pattern 'inventory/reserve' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\FINDINGS.md -Pattern 'Program\\.cs' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\FINDINGS.md -Pattern 'MOCK_REQUIRED:\\s*NO' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "$q = Get-Content qaas-analysis\\QUESTIONS.md -Raw; $n = ([regex]::Matches($q, '\\?')).Count; if ($n -ge 4) { Write-Output 'True' } else { Write-Output \"FAIL: only $n question marks\" }",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Get-ChildItem -Recurse -Filter *.qaas.yaml | Measure-Object | ForEach-Object { $_.Count }",
+          "expectOutputContains": "0",
+          "timeoutSec": 60
+        }
+      ],
+      "rubric": [
+        "FINDINGS.md lists all 3 endpoints with correct methods, routes, and file:line citations",
+        "MOCK_REQUIRED: NO explicitly stated with justification",
+        "QUESTIONS.md has at least 4 residual questions not answerable from the seed",
+        "No question re-asks endpoint names, default port, or DTO shapes",
+        "No YAML or csproj files created — asks first, codes later"
+      ],
+      "failureModes": [
+        "Jumping straight to writing YAML without asking residual questions",
+        "Missing MOCK_REQUIRED: NO determination in FINDINGS.md",
+        "Re-asking 'what endpoints exist?' which Program.cs already answers",
+        "Fewer than 4 question marks in QUESTIONS.md",
+        "Creating a .qaas.yaml or .csproj file before questions are answered"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

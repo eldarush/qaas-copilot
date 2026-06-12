@@ -1,0 +1,21 @@
+Servers:
+  - Http:
+      Port: 8080
+      Endpoints:
+        - Path: /health
+          Actions:
+            - Name: HealthGet
+              Method: Get
+              TransactionStubName: HealthStub
+        - Path: /svc/data
+          Actions:
+            - Name: DataGet
+              Method: Get
+              TransactionStubName: DataStub
+Stubs:
+  - Name: HealthStub
+    Processor: StaticResponseProcessor
+    ProcessorConfiguration: { Body: ok, StatusCode: 200, ContentType: text/plain }
+  - Name: DataStub
+    Processor: StaticResponseProcessor
+    ProcessorConfiguration: { Body: '{"status":"online"}', StatusCode: 200, ContentType: application/json }

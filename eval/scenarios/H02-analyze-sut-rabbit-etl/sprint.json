@@ -1,0 +1,98 @@
+{
+  "sprintId": "H02",
+  "feature": "analyze-sut-rabbit-etl",
+  "goalOneSentence": "Read the seeded OrderEnricher RabbitMQ ETL worker source and produce a structured sut-profile.md capturing broker topology, data-transformation contract, observability, env config, and a QaaS test-mapping section.",
+  "nonGoals": [
+    "writing any QaaS YAML",
+    "writing any csproj",
+    "running dotnet build or run",
+    "connecting to a real RabbitMQ broker"
+  ],
+  "factBaseSlices": ["s00", "s05", "s13"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Analyze OrderEnricher source and write sut-profile.md",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "analyze-sut-repo",
+      "files": {
+        "create": ["qaas-analysis/sut-profile.md"],
+        "edit": []
+      },
+      "description": "The working directory contains a seeded SUT at sut/OrderEnricher/. Read Worker.cs, Program.cs, and Models/Order.cs carefully before writing anything. Write qaas-analysis/sut-profile.md with ALL of the following sections:\n\n**Section 1 — Broker Topology** (required Markdown table with columns: Direction, Queue/Exchange, Type, Routing Key Pattern, Citation). Must include two rows: (a) CONSUME — queue: orders.incoming, type: queue (direct), routing key: N/A, citing Worker.cs at the line declaring ConsumeQueue; (b) PUBLISH — exchange: orders.enriched, type: topic, routing key pattern: order.enriched.{Region} (dynamic, based on order.Region field), citing Worker.cs at the line with the routingKey variable assignment.\n\n**Section 2 — Data Transformation Contract** (required Markdown table with columns: Input Field, Output Field / Transformation, Notes). Must include: OrderId (pass-through), Region (pass-through, also used in routing key), Quantity (pass-through), UnitPriceCents (pass-through), Status ('NEW' → 'PENDING_ENRICHMENT'), TotalCents (computed: Quantity * UnitPriceCents, citing the line in Worker.cs where TotalCents is assigned). All transformations must cite the file and line.\n\n**Section 3 — Observability**. Two sub-items: (a) Log line template — must be the exact template string from Worker.cs: 'Enriched order {OrderId}'; (b) Metric name — must be the exact string from Worker.cs: orders_enriched_total (counter, incremented on each successful enrichment).\n\n**Section 4 — Environment Configuration** (required Markdown table with columns: EnvVar, Default, Description, Citation). Must include: RABBIT_HOST (default: localhost), RABBIT_PORT (default: 5672), PREFETCH_COUNT (default: 10). Each row must cite the line in Worker.cs where Environment.GetEnvironmentVariable is called.\n\n**Section 5 — QaaS Test Mapping**. Free-form section describing which QaaS session types apply to test this worker WITHOUT writing any YAML. Must state: (a) a Publisher session feeds test order messages into queue orders.incoming; (b) a Consumer session captures enriched messages from exchange orders.enriched. Explain why both session types are needed for an end-to-end test. Do NOT write any YAML in this section.\n\nDo NOT produce any YAML, csproj, or code files. Analysis markdown only.",
+      "acceptanceCriteria": [
+        "qaas-analysis/sut-profile.md exists",
+        "Broker Topology table includes orders.incoming (consume) and orders.enriched (publish)",
+        "Routing key pattern order.enriched.{Region} documented with citation",
+        "TotalCents = Quantity * UnitPriceCents documented with citation",
+        "Status transition NEW→PENDING_ENRICHMENT documented",
+        "orders_enriched_total metric name present",
+        "PREFETCH_COUNT env var with default 10 present",
+        "QaaS Test Mapping section mentions Publisher and Consumer session types"
+      ],
+      "factBaseSlices": ["s00", "s05", "s13"],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'orders\\.incoming' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'orders\\.enriched' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'order\\.enriched\\.' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'TotalCents' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'PENDING_ENRICHMENT' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'orders_enriched_total' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'PREFETCH_COUNT' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path qaas-analysis\\sut-profile.md -Pattern 'Worker\\.cs' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "rubric": [
+        "Broker topology table has correct queue/exchange names and types with citations",
+        "Routing key pattern is dynamic (order.enriched.{Region}), not a static string",
+        "TotalCents formula documented as Quantity * UnitPriceCents with citation",
+        "Status transition NEW→PENDING_ENRICHMENT explicitly documented",
+        "All 3 env vars (RABBIT_HOST, RABBIT_PORT, PREFETCH_COUNT) in config table",
+        "QaaS Test Mapping section identifies Publisher and Consumer as the correct session types"
+      ],
+      "failureModes": [
+        "Writing routing key as static 'order.enriched' without the dynamic {Region} suffix",
+        "Missing TotalCents computation formula",
+        "Missing PREFETCH_COUNT env var",
+        "Suggesting Transaction (HTTP) session type instead of Publisher/Consumer",
+        "Producing YAML in the test mapping section instead of description-only analysis"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

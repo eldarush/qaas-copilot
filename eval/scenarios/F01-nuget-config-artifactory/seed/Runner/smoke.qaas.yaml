@@ -1,0 +1,4 @@
+# smoke.qaas.yaml — restore-only scenario; this file just needs to exist for the csproj globs
+MetaData:
+  Team: Platform
+  System: AirgapSmoke

@@ -1,0 +1,4 @@
+replicaCount: 3
+
+env:
+  ENRICHER_MODE: "turbo"

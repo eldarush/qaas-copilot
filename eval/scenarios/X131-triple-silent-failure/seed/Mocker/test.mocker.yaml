@@ -1,0 +1,13 @@
+Servers:
+  - Http:
+      Port: 8261
+      Endpoints:
+        - Path: /status
+          Actions:
+            - Name: Action1
+              Method: Get
+              TransactionStubName: Stub1
+Stubs:
+  - Name: Stub1
+    Processor: StaticResponseProcessor
+    ProcessorConfiguration: { Body: ok, StatusCode: 200, ContentType: text/plain }

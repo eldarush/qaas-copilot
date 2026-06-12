@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-gateway
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: payment-gateway
+  template:
+    metadata:
+      labels:
+        app: payment-gateway
+    spec:
+      containers:
+        - name: payment-gateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          envFrom:
+            - configMapRef:
+                name: payment-config
+          env:
+            - name: GATEWAY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: GATEWAY_URL
+            - name: TIMEOUT
+              value: "{{ .Values.env.TIMEOUT }}"
+            - name: MAX_RETRIES
+              value: "{{ .Values.env.MAX_RETRIES }}"
+            - name: STRIPE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: payment-secret
+                  key: stripe_api_key
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: payment-secret
+                  key: webhook_secret

@@ -1,0 +1,214 @@
+{
+  "sprintId": "R131",
+  "feature": "hermetic-pct-mix",
+  "goalOneSentence": "Verify that a six-session QaaS runner YAML correctly applies HermeticByInputOutputPercentage across four succeeding HTTP sessions and two intentionally failing sessions, producing ExitCode=0 with a 60% threshold.",
+  "nonGoals": [
+    "mocker project",
+    "RabbitMQ broker",
+    "authentication",
+    "Docker containers"
+  ],
+  "factBaseSlices": [
+    "s02",
+    "s09",
+    "s13"
+  ],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Scaffold runner-only project",
+      "skill": "scaffold-runner-project",
+      "description": "Create a .NET 10 console project at Runner/Runner.csproj targeting net10.0. The csproj must reference exactly three packages: QaaS.Runner 4.5.1, QaaS.Common.Assertions 3.5.1 (the sprint YAML will use built-in hermetic assertions like HermeticByExpectedOutputCount and HermeticByInputOutputPercentage), and QaaS.Common.Generators 3.5.1 (built-in generators feed the HTTP sessions). Do NOT add QaaS.Common.Probes, QaaS.Common.Processors, or QaaS.Mocker. Program.cs must contain exactly the one-liner: QaaS.Runner.Bootstrap.New(args).Run(); with no additional logic. This is a runner-only scenario driven by an external HTTP SUT seeded from http-server.ps1; no Mocker project is needed. Confirm the project builds cleanly with dotnet build -c Release from the Runner directory.",
+      "priority": 1,
+      "dependsOn": [],
+      "factBaseSlices": [
+        "s01",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/Runner.csproj",
+          "Runner/Program.cs"
+        ],
+        "edit": []
+      },
+      "verify": [
+        {
+          "cmd": "dotnet build -c Release",
+          "cwd": "Runner",
+          "timeoutSec": 300,
+          "expectExitCode": 0
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet build exits 0 in Runner directory",
+        "Runner.csproj references exactly QaaS.Runner 4.5.1 + QaaS.Common.Assertions 3.5.1 + QaaS.Common.Generators 3.5.1",
+        "Program.cs uses exact Bootstrap one-liner"
+      ],
+      "rubric": [
+        "Runner.csproj targets net10.0 with the three required packages at correct independent versions",
+        "Program.cs uses exact one-liner Bootstrap.New(args).Run()"
+      ],
+      "failureModes": [
+        "Wrong NuGet version (versions are independent per package, not shared)",
+        "Missing QaaS.Common.* packages causing runtime Autofac HookProvider crash despite clean build",
+        "Mocker project accidentally scaffolded"
+      ],
+      "iterations": 0,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "T-002",
+      "title": "Seed HTTP server script and author test data",
+      "skill": "scaffold-runner-project",
+      "description": "Create Runner/TestData/payload.json containing exactly one JSON array row: [{\"id\":\"1\",\"value\":\"test\"}]. The file http-server.ps1 is ALREADY present at the workspace root (accessible as ..\\http-server.ps1 relative to the Runner directory); do NOT modify, move, or re-create it. Verify the payload file exists and contains valid JSON by checking it is parseable. This test data file is referenced by DataSourceNames in all six sessions of the runner YAML authored in T-003.",
+      "priority": 2,
+      "dependsOn": [
+        "T-001"
+      ],
+      "factBaseSlices": [
+        "s02",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/TestData/payload.json"
+        ],
+        "edit": []
+      },
+      "verify": [
+        {
+          "cmd": "Get-Content Runner\\TestData\\payload.json | ConvertFrom-Json | Measure-Object | Select-Object -ExpandProperty Count",
+          "timeoutSec": 30,
+          "expectOutputContains": "1"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Runner/TestData/payload.json exists with exactly one row",
+        "JSON parses without error"
+      ],
+      "rubric": [
+        "payload.json is valid JSON array with one element"
+      ],
+      "failureModes": [
+        "Missing TestData directory",
+        "payload.json not valid JSON array"
+      ],
+      "iterations": 0,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "T-003",
+      "title": "Author six-session runner YAML with hermetic percentage assertion",
+      "skill": "author-runner-yaml",
+      "description": "Create Runner/r131.qaas.yaml. DataSources: one entry with Name payload, Generator FromFileSystem, GeneratorConfiguration with DataArrangeOrder AsciiAsc and FileSystem {Path: TestData} (NO Type/Path keys at entry level, s13 trap 22; NO Pattern key exists in FileSystemConfig, s13 trap 20 -- TestData holds exactly one file payload.json so no filter is needed). Six Sessions: session-1 through session-4 each have one Transaction (Name tx-N) with Http BaseAddress http://127.0.0.1:8211, Route test (no leading slash, s13 trap 5), Method Get, TimeoutMs 5000, DataSourceNames [payload], at Stages 1-4; each session asserts HermeticByExpectedOutputCount {OutputNames: [tx-N], ExpectedCount: 1} plus HttpStatus {StatusCode: 200, OutputNames: [tx-N]} (exact keys StatusCode and OutputNames list, s13 trap 4). Sessions session-5 and session-6 have Transactions tx-5/tx-6 targeting http://127.0.0.1:9999 (intentionally unreachable), Route test, Method Get, TimeoutMs 2000, DataSourceNames [payload], Stages 5-6; each asserts HermeticByExpectedOutputCount {OutputNames: [tx-N], ExpectedCount: 0} and NO HttpStatus (zero outputs make it vacuous, s13 trap 13). Add one suite-wide assertion HermeticByInputOutputPercentageInRange with SessionNames listing all six sessions and AssertionConfiguration {InputNames: [tx-1,tx-2,tx-3,tx-4,tx-5,tx-6], OutputNames: [tx-1,tx-2,tx-3,tx-4,tx-5,tx-6], ExpectedMinimumPercentage: 50, ExpectedMaximumPercentage: 75} -- exact-equality HermeticByInputOutputPercentage can never match 4-of-6 = 66.67% (s13 trap 23); the range form is required. Run the template gate to confirm the YAML parses with zero unknown-property warnings.",
+      "priority": 3,
+      "dependsOn": [
+        "T-002"
+      ],
+      "factBaseSlices": [
+        "s02",
+        "s09",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/r131.qaas.yaml"
+        ],
+        "edit": []
+      },
+      "verify": [
+        {
+          "cmd": "dotnet run -c Release -- template r131.qaas.yaml",
+          "cwd": "Runner",
+          "timeoutSec": 300,
+          "expectExitCode": 0,
+          "expectOutputNotContains": "not found in"
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet run template exits 0 without 'not found in' errors",
+        "All 6 sessions declared with distinct Stage values and correct ports",
+        "HermeticByExpectedOutputCount guards on all 6 sessions",
+        "HermeticByInputOutputPercentage in session-6 with all 6 session names and Percentage 60"
+      ],
+      "rubric": [
+        "Sessions 1-4 at port 8211 with HermeticByExpectedOutputCount ExpectedCount 1",
+        "Sessions 5-6 at port 9999 TimeoutMs 2000 with HermeticByExpectedOutputCount ExpectedCount 0",
+        "HermeticByInputOutputPercentage covers all 6 session names with Percentage 60",
+        "HttpStatus assertions on sessions 1-4 use StatusCode and OutputNames (list) not legacy fields",
+        "Route has no leading slash on any session",
+        "SaveSessionData true on all assertions"
+      ],
+      "failureModes": [
+        "Leading slash on Route causes 404 on all sessions",
+        "OutputName used instead of OutputNames causes silent assertion skip (s13 trap 4)",
+        "HermeticByInputOutputPercentage threshold too high causing run to exit non-zero",
+        "DataSourceNames omitted causing zero outputs from all sessions",
+        "TimeoutMs omitted on sessions 5-6 causing long hang on unreachable port"
+      ],
+      "iterations": 0,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "T-004",
+      "title": "Live run end-to-end and write RUN-REPORT.md",
+      "skill": "run-and-collect",
+      "description": "Execute the full end-to-end run: start http-server.ps1 on port 8211 as a background process, wait 5 seconds for it to be ready, then execute dotnet run -c Release -- run r131.qaas.yaml from the Runner directory, capture the exit code, stop the HTTP server process, and assert the runner exits 0 with ExitCode=0 in output. Sessions 1-4 must each produce exactly 1 HTTP output (200 from port 8211); sessions 5-6 produce 0 outputs (port 9999 is unreachable, TimeoutMs 2000). The suite-wide HermeticByInputOutputPercentageInRange (50-75) covers the actual 4-of-6 = 66.7% delivery rate (exact-equality HermeticByInputOutputPercentage can never match it, s13 trap 23), so the overall run exits 0. After the run, create Runner/RUN-REPORT.md documenting: exact commands used, expected session outcomes per session, Allure artifact paths, and failure triage notes citing s13 traps 4, 5, 11, 12.",
+      "priority": 4,
+      "dependsOn": [
+        "T-003"
+      ],
+      "factBaseSlices": [
+        "s06",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/RUN-REPORT.md"
+        ],
+        "edit": []
+      },
+      "verify": [
+        {
+          "cmd": "$srv = Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','..\\http-server.ps1','-Port','8211','-TimeoutSec','120' -PassThru; Start-Sleep -Seconds 5; dotnet run -c Release -- run r131.qaas.yaml; $code = $LASTEXITCODE; Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "cwd": "Runner",
+          "timeoutSec": 600,
+          "expectExitCode": 0,
+          "expectOutputContains": "ExitCode=0"
+        },
+        {
+          "cmd": "Test-Path RUN-REPORT.md",
+          "cwd": "Runner",
+          "timeoutSec": 30,
+          "expectOutputContains": "True"
+        }
+      ],
+      "acceptanceCriteria": [
+        "End-to-end run exits 0 with ExitCode=0 in output",
+        "HTTP server starts on port 8211 and serves sessions 1-4",
+        "Sessions 5-6 produce 0 outputs as expected",
+        "RUN-REPORT.md created in Runner directory"
+      ],
+      "rubric": [
+        "Runner exits 0 confirming 60% hermetic threshold passed",
+        "RUN-REPORT.md present with triage notes"
+      ],
+      "failureModes": [
+        "HTTP server not started before runner causing sessions 1-4 to also fail",
+        "Wrong CWD for dotnet run command",
+        "Percentage threshold set above 66 causing assertion failure"
+      ],
+      "iterations": 0,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

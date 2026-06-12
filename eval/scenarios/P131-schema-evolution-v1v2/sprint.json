@@ -1,0 +1,240 @@
+{
+  "sprintId": "P131",
+  "feature": "schema-evolution-v1v2",
+  "goalOneSentence": "Verify that the schema-evolution relay correctly normalizes a mixed 6-message RabbitMQ stream (3 V1 + 3 V2 records) into a unified shape with fullName and migrated fields, proven by a hermetic count guard and a custom BaseAssertion.",
+  "nonGoals": ["HTTP mocker", "docker image builds", "auth flows", "multi-queue fanout"],
+  "factBaseSlices": ["s01", "s02", "s03", "s04", "s13"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Scaffold the runner project",
+      "skill": "scaffold-runner-project",
+      "priority": 1,
+      "dependsOn": [],
+      "factBaseSlices": ["s01", "s13"],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/Runner.csproj",
+          "Runner/Program.cs"
+        ],
+        "edit": []
+      },
+      "description": "Create a .NET 10 console project Runner/Runner.csproj. Sdk=Microsoft.NET.Sdk; OutputType=Exe; TargetFramework=net10.0; ImplicitUsings=enable; Nullable=enable. PackageReference: QaaS.Runner Version=4.5.1 and QaaS.Common.Assertions Version=3.5.1. ItemGroup: None Update=*.qaas.yaml CopyToOutputDirectory Always. Runner/Program.cs: exactly one top-level statement QaaS.Runner.Bootstrap.New(args).Run(); Do NOT add any hook registration or DI code. No mocker project is needed for P131 (pure RabbitMQ scenario with seeded SUT relay). Build must succeed immediately after scaffolding. The custom assertion C# file will be added in a later task and does not need to exist for the initial build.",
+      "verify": [
+        {
+          "cmd": "dotnet build -c Release",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        },
+        {
+          "cmd": "Get-Content Runner\\Program.cs",
+          "expectOutputContains": "QaaS.Runner.Bootstrap.New(args).Run();",
+          "timeoutSec": 60
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet build exits 0",
+        "Program.cs contains only the Bootstrap one-liner",
+        "QaaS.Runner 4.5.1 and QaaS.Common.Assertions 3.5.1 referenced"
+      ],
+      "rubric": [
+        "csproj uses exact versions 4.5.1 and 3.5.1 (s13#9)",
+        "No invented registration code",
+        "CopyToOutputDirectory Always for YAML files"
+      ],
+      "failureModes": [
+        "Wrong QaaS.Common.Assertions version (must be 3.5.1 not 4.5.1)",
+        "Missing CopyToOutputDirectory Always for *.qaas.yaml",
+        "Adding superfluous Main method around Bootstrap"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-002",
+      "title": "Author SchemaEvolutionAssertion and six interleaved data files",
+      "skill": "author-custom-hook",
+      "priority": 2,
+      "dependsOn": ["T-001"],
+      "factBaseSlices": ["s04", "s13"],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/SchemaEvolutionAssertion.cs",
+          "Runner/TestData/rec-01-v1-alice.json",
+          "Runner/TestData/rec-02-v2-bob.json",
+          "Runner/TestData/rec-03-v1-charlie.json",
+          "Runner/TestData/rec-04-v2-dave.json",
+          "Runner/TestData/rec-05-v1-eve.json",
+          "Runner/TestData/rec-06-v2-frank.json"
+        ],
+        "edit": []
+      },
+      "description": "Write Runner/SchemaEvolutionAssertion.cs. First define: public record SchemaEvolutionConfig { [Required] public string? OutputName { get; set; } [Required] public int? ExpectedMigratedTrueCount { get; set; } [Required] public int? ExpectedMigratedFalseCount { get; set; } } using System.ComponentModel.DataAnnotations. Then write: public class SchemaEvolutionAssertion : BaseAssertion<SchemaEvolutionConfig> in namespace Runner. Required usings: QaaS.Framework.SDK.Hooks.Assertion, QaaS.Framework.SDK.Session.SessionDataObjects, QaaS.Framework.SDK.DataSourceObjects, QaaS.Framework.SDK.Extensions, System.Collections.Immutable, System.Text.Json. Override Assert: (1) var output = sessionDataList.AsSingle().GetOutputByName(Configuration!.OutputName!).CastCommunicationData<System.Text.Json.JsonElement>(); (2) var violations = new List<string>(); int trueCount=0, falseCount=0; foreach(var item in output.Data){ if(!item.Body.TryGetProperty(\"fullName\",out _)) violations.Add(\"Missing fullName\"); if(item.Body.TryGetProperty(\"migrated\",out var m)){ if(m.GetBoolean()) trueCount++; else falseCount++; } else violations.Add(\"Missing migrated\"); } (3) if(trueCount!=Configuration!.ExpectedMigratedTrueCount) violations.Add($\"Expected {Configuration.ExpectedMigratedTrueCount} migrated=true got {trueCount}\"); if(falseCount!=Configuration!.ExpectedMigratedFalseCount) violations.Add($\"Expected {Configuration.ExpectedMigratedFalseCount} migrated=false got {falseCount}\"); (4) AssertionMessage=violations.Count==0?\"Schema evolution verified\":\"Violations found\"; AssertionTrace=string.Join(\"\\n\",violations); return violations.Count==0. Also create the six interleaved data files: rec-01-v1-alice.json={\"schemaVersion\":1,\"name\":\"Alice\"}, rec-02-v2-bob.json={\"schemaVersion\":2,\"fullName\":\"Bob\"}, rec-03-v1-charlie.json={\"schemaVersion\":1,\"name\":\"Charlie\"}, rec-04-v2-dave.json={\"schemaVersion\":2,\"fullName\":\"Dave\"}, rec-05-v1-eve.json={\"schemaVersion\":1,\"name\":\"Eve\"}, rec-06-v2-frank.json={\"schemaVersion\":2,\"fullName\":\"Frank\"}. File names prefixed with rec-0N- so AsciiAsc ordering yields V1/V2 interleaved.",
+      "verify": [
+        {
+          "cmd": "dotnet build -c Release",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        },
+        {
+          "cmd": "Select-String -Path Runner\\SchemaEvolutionAssertion.cs -Pattern 'BaseAssertion<' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "(Get-ChildItem Runner\\TestData\\rec-*.json).Count",
+          "expectOutputContains": "6",
+          "timeoutSec": 60
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet build exits 0 with SchemaEvolutionAssertion present",
+        "Six data files exist in Runner/TestData/",
+        "Config record has [Required] nullable properties"
+      ],
+      "rubric": [
+        "Assertion counts trueCount and falseCount separately",
+        "Both fullName presence and migrated value checked per output item",
+        "Config record fields all [Required] and nullable"
+      ],
+      "failureModes": [
+        "Implementing IAssertion directly instead of BaseAssertion<T>",
+        "Using non-nullable config properties without [Required]",
+        "Missing AssertionTrace (no diagnostic info on failure)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-003",
+      "title": "Write seeded transform-relay.ps1 into the trial workspace",
+      "skill": "run-and-collect",
+      "priority": 2,
+      "dependsOn": ["T-001"],
+      "factBaseSlices": ["s13"],
+      "docPages": [],
+      "files": {
+        "create": ["transform-relay.ps1"],
+        "edit": []
+      },
+      "description": "The seeded transform-relay.ps1 is ALREADY at the workspace root (do not re-create it) so the live-gate verify step can reference it as ..\\transform-relay.ps1 from the Runner/ cwd. The script is a RabbitMQ management-API relay that declares exchanges p131-input and p131-output, polls p131-input via a tap queue, transforms each message (schemaVersion=1: rename name to fullName and add migrated=true; schemaVersion=2: keep fullName and add migrated=false), then publishes the transformed JSON to p131-output. The script accepts -InputExchange, -OutputExchange, -TimeoutSec params matching the relay.ps1 signature from eval/infra/relay.ps1. This SUT script must be present at the trial root before the live gate runs. If seed/transform-relay.ps1 already exists in the workspace artifacts directory, copy it; otherwise write it from scratch following the transform logic described here.",
+      "verify": [
+        {
+          "cmd": "Test-Path transform-relay.ps1",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path transform-relay.ps1 -Pattern 'schemaVersion' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "acceptanceCriteria": [
+        "transform-relay.ps1 exists in the trial root directory",
+        "Script contains schemaVersion branch logic"
+      ],
+      "rubric": [
+        "Script transforms V1 records (name->fullName, migrated=true)",
+        "Script transforms V2 records (fullName passthrough, migrated=false)",
+        "Exchange names default to p131-input and p131-output"
+      ],
+      "failureModes": [
+        "Script not placed at trial root (Runner/../transform-relay.ps1 path fails)",
+        "Wrong exchange names (messages never arrive at consumer)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-004",
+      "title": "Author runner YAML with Publisher, Consumer, and assertions",
+      "skill": "author-runner-yaml",
+      "priority": 3,
+      "dependsOn": ["T-002"],
+      "factBaseSlices": ["s02", "s03", "s13"],
+      "docPages": [],
+      "files": {
+        "create": ["Runner/evolve.qaas.yaml"],
+        "edit": []
+      },
+      "description": "Create Runner/evolve.qaas.yaml. MetaData: Team: Smoke, System: P131. DataSources: one entry Name: MixedBatch, DataSourceType: FileSystem, Path: TestData, Pattern: rec-*.json, Order: AsciiAsc, Deserializer: Json. Sessions: one session Name: EvolutionRun. Publishers: one entry Name: Publisher, DataSourceNames: [MixedBatch] (DataSourceNames plural with list value -- s13#3 required), RabbitMq: Host: 127.0.0.1, Username: admin, Password: admin, RoutingKey: /, Port: 5672, ExchangeName: p131-input, Serialize: Serializer: Json. Consumers: one entry Name: Consumer, TimeoutMs: 8000 (Consumer TimeoutMs is REQUIRED -- s13#6), RabbitMq: Host: 127.0.0.1, Username: admin, Password: admin, RoutingKey: /, Port: 5672, ExchangeName: p131-output, Deserialize: Deserializer: Json. Assertions: (1) Name: CountGuard, Assertion: HermeticByExpectedOutputCount, SessionNames: [EvolutionRun], AssertionConfiguration: OutputNames: [Consumer], ExpectedCount: 6 (s13#12 -- prevents vacuous pass on zero outputs). (2) Name: SchemaCheck, Assertion: SchemaEvolutionAssertion, SessionNames: [EvolutionRun], AssertionConfiguration: OutputName: Consumer, ExpectedMigratedTrueCount: 3, ExpectedMigratedFalseCount: 3. Exchange names must exactly match transform-relay.ps1 defaults (p131-input, p131-output).",
+      "verify": [
+        {
+          "cmd": "dotnet run -c Release -- template evolve.qaas.yaml",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "expectOutputNotContains": "not found in",
+          "timeoutSec": 300
+        }
+      ],
+      "acceptanceCriteria": [
+        "Template verification exits 0",
+        "No 'not found in' warnings about assertion name",
+        "HermeticByExpectedOutputCount with ExpectedCount 6 present",
+        "Consumer has TimeoutMs set"
+      ],
+      "rubric": [
+        "DataSourceNames plural with list value (s13#3)",
+        "Exchange names p131-input and p131-output matching relay defaults",
+        "Both assertions wired by exact class names"
+      ],
+      "failureModes": [
+        "DataSourceName singular (s13#3 -- silently rejected)",
+        "Consumer missing TimeoutMs (s13#6 -- consumer times out immediately)",
+        "Wrong exchange names (consumer receives nothing, count guard fails)",
+        "Omitting HermeticByExpectedOutputCount (s13#12 -- vacuous pass risk)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-005",
+      "title": "Run live end-to-end gate: transform relay + runner pipeline",
+      "skill": "run-and-collect",
+      "priority": 4,
+      "dependsOn": ["T-003", "T-004"],
+      "factBaseSlices": ["s06", "s13"],
+      "docPages": [],
+      "files": {
+        "create": [],
+        "edit": []
+      },
+      "description": "Execute the full P131 end-to-end verification: launch transform-relay.ps1 as a background PowerShell process (consuming from p131-input, transforming, publishing to p131-output with a 150-second timeout), wait 10 seconds for the relay to declare exchanges and start polling, then run the runner with dotnet run -c Release -- run evolve.qaas.yaml from the Runner/ directory. Capture the runner exit code, force-stop the relay process, and exit with the runner's code. The runner exits 0 only when both HermeticByExpectedOutputCount(6) and SchemaEvolutionAssertion both pass, confirming all 6 messages (3 V1 migrated and 3 V2 passed through) arrived with correct fullName and migrated fields. Use Start-Process powershell with -NoProfile, -ExecutionPolicy Bypass, -File ..\\transform-relay.ps1, -InputExchange p131-input, -OutputExchange p131-output, -TimeoutSec 150. Reference the relay file as ..\\transform-relay.ps1 from Runner/ cwd (trial root is one directory above Runner/).",
+      "verify": [
+        {
+          "cmd": "$r = Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','..\\transform-relay.ps1','-InputExchange','p131-input','-OutputExchange','p131-output','-TimeoutSec','150' -PassThru; Start-Sleep -Seconds 10; dotnet run -c Release -- run evolve.qaas.yaml; $code=$LASTEXITCODE; Stop-Process -Id $r.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "acceptanceCriteria": [
+        "Runner exits 0 with both assertions passing",
+        "Transform relay started and stopped cleanly",
+        "All 6 messages received and schema-verified"
+      ],
+      "rubric": [
+        "Relay started before runner with 10-second warmup",
+        "Relay process stopped after runner completes",
+        "Exit code propagated from runner"
+      ],
+      "failureModes": [
+        "Relay not started before runner (Consumer times out, count guard fails)",
+        "Exchange name mismatch (messages never arrive at consumer)",
+        "Consumer TimeoutMs too low for relay processing latency"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+# orders.qaas.yaml — status check suite for the Orders service
+MetaData:
+  Team: Orders
+  System: OrderHub
+
+Storages:
+  - FileSystem:
+      Path: ./session-data
+
+DataSources:
+  - Name: StatusPayload
+    Generator: FromFileSystem
+    GeneratorConfiguration:
+      DataArrangeOrder: AsciiAsc
+      FileSystem:
+        Path: TestData
+
+Sessions:
+  - Name: StatusSession
+    Transactions:
+      - Name: CallStatus
+        DataSourceNames: [StatusPayload]
+        TimeoutMs: 5000
+        Http:
+          BaseAddress: http://127.0.0.1
+          Port: 8093
+          Route: /status
+          Method: Get
+
+Assertions:
+  - Name: ReturnedOk
+    Assertion: HttpStatus
+    SessionNames: [StatusSession]
+    AssertionConfiguration:
+      StatusCode: 200
+      OutputNames:
+        - CallStatus

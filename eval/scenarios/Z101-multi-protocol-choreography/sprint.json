@@ -1,0 +1,296 @@
+{
+  "sprintId": "Z101",
+  "feature": "multi-protocol-choreography",
+  "goalOneSentence": "Prove end-to-end correctness of a multi-protocol order pipeline — HTTP POST ingress, RabbitMQ publish to z101-input, relay bridge to z101-output, Consumer read, and HTTP GET egress — using a single QaaS runner suite with hermetic count guards on every output set.",
+  "nonGoals": [
+    "real Redis controller swap",
+    "K8s topology probes",
+    "Allure report publishing",
+    "testing non-z101 exchanges or ports"
+  ],
+  "factBaseSlices": [
+    "s02",
+    "s03",
+    "s09",
+    "s12",
+    "s13"
+  ],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Scaffold Runner and Mocker .NET 10 projects",
+      "skill": "scaffold-runner-project",
+      "priority": 1,
+      "dependsOn": [],
+      "factBaseSlices": [
+        "s01",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/Runner.csproj",
+          "Runner/Program.cs",
+          "Mocker/Mocker.csproj",
+          "Mocker/Program.cs"
+        ],
+        "edit": []
+      },
+      "description": "Create two .NET 10 console projects. Runner/Runner.csproj must reference QaaS.Runner Version=4.5.1 and QaaS.Common.Assertions Version=3.5.1; add ItemGroup with None Update='*.qaas.yaml' CopyToOutputDirectory=Always and None Update='TestData/*' CopyToOutputDirectory=Always. Runner/Program.cs must contain exactly one line: QaaS.Runner.Bootstrap.New(args).Run();\n\nMocker/Mocker.csproj must reference QaaS.Mocker Version=2.4.1 and QaaS.Common.Processors Version=1.5.1; add ItemGroup with None Update='*.mocker.yaml' CopyToOutputDirectory=Always. Mocker/Program.cs must contain exactly one line: QaaS.Mocker.Bootstrap.New(args).Run();\n\nBoth projects: OutputType Exe, TargetFramework net10.0, ImplicitUsings enable, Nullable enable. Do NOT add QaaS.Common.Probes to this project — no topology probes are needed because relay.ps1 declares both exchanges at startup. Do NOT reference non-existent packages. Version 4.5.1 is the correct QaaS.Runner version; putting 4.5.1 on QaaS.Common.* packages is wrong and will cause NU1102 (FB s13#9).",
+      "verify": [
+        {
+          "cmd": "dotnet build -c Release",
+          "expectExitCode": 0,
+          "cwd": "Runner",
+          "timeoutSec": 600
+        },
+        {
+          "cmd": "dotnet build -c Release",
+          "expectExitCode": 0,
+          "cwd": "Mocker",
+          "timeoutSec": 600
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet build exits 0 for Runner",
+        "dotnet build exits 0 for Mocker",
+        "Runner.csproj references QaaS.Runner 4.5.1",
+        "Mocker.csproj references QaaS.Mocker 2.4.1",
+        "Both Program.cs files contain the correct one-liner bootstrap"
+      ],
+      "rubric": [
+        "Correct NuGet versions used — FB s13#9 (Runner 4.5.1, Mocker 2.4.1, Assertions 3.5.1, Processors 1.5.1)",
+        "CopyToOutputDirectory=Always on yaml and TestData",
+        "No QaaS.Common.Probes reference in Runner or Mocker",
+        "Bootstrap one-liners are exact"
+      ],
+      "failureModes": [
+        "Putting 4.5.1 on QaaS.Common.Assertions or QaaS.Common.Processors — NU1102 package not found",
+        "Missing QaaS.Common.Assertions in Runner — HermeticByExpectedOutputCount not found at build",
+        "Missing CopyToOutputDirectory on yaml files — template command fails",
+        "Wrong Program.cs content"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-002",
+      "title": "Author mocker YAML (2 servers), runner YAML (4 sessions), and test data",
+      "skill": "author-runner-yaml",
+      "priority": 2,
+      "dependsOn": [
+        "T-001"
+      ],
+      "factBaseSlices": [
+        "s02",
+        "s03",
+        "s09",
+        "s12",
+        "s13"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Mocker/z101.mocker.yaml",
+          "Runner/z101.runner.qaas.yaml",
+          "Runner/TestData/order.json"
+        ],
+        "edit": []
+      },
+      "description": "Author three files for the multi-protocol pipeline.\n\nMocker/z101.mocker.yaml: two Http servers. Server 1 Port 8271 (ingress): Path /order, Method Post, Action name post-order, TransactionStubName PostOrderStub. Server 2 Port 8272 (egress): Path /order/{id}/status, Method Get, Action name get-order-status, TransactionStubName GetStatusStub. Stubs section: PostOrderStub uses Processor StaticResponseProcessor, ProcessorConfiguration key (not TransactionData — FB s13#1) with Body '{\"id\":\"z101-order-001\",\"accepted\":true}' StatusCode 202 ContentType application/json. GetStatusStub uses Processor StaticResponseProcessor, ProcessorConfiguration with Body '{\"id\":\"z101-order-001\",\"status\":\"processed\"}' StatusCode 200 ContentType application/json. All paths lowercase with no leading slash issues (FB s13#5b): paths /order and /order/{id}/status are already lowercase.\n\nRunner/z101.runner.qaas.yaml: RabbitMq config Host localhost Port 5672 Username admin Password admin. Storages list with one FileSystem entry Path ./session-data (FB s13#2 list-of-maps shape). DataSources: one entry Name OrderData, Generator FromFileSystem, GeneratorConfiguration with FileSystem {Path: TestData} (ONLY Path - no Pattern key exists, FB s13#20). Three sessions:\n(1) post-ingress: one Transaction http Host localhost Port 8271 Method Post Route order (no leading slash, FB s13#5) DataSourceNames [OrderData] (required on Transactions, FB s13#3) ContentType application/json; Assertions HttpStatus StatusCode 202 OutputNames [post-ingress-out] (FB s13#4) and HermeticByExpectedOutputCount ExpectedCount 1 (FB s13#12).\n(2) queue-roundtrip: a SINGLE session containing BOTH the Publisher (RabbitMq ExchangeName z101-input, RoutingKey /, DataSourceNames [OrderData]) AND the Consumer (Name consume-result, RabbitMq ExchangeName z101-output, RoutingKey /, TimeoutMs 30000, Deserialize Json). They MUST share one session so the consumer binds at action-stage 0 BEFORE the publisher fires at action-stage 1 (FB s13#24 - a consumer in a later session binds after the relay already forwarded and the broker drops the messages); Assertions on this session: HermeticByExpectedOutputCount {OutputNames: [consume-result], ExpectedCount: 1}. Do NOT add any topology probes (CreateRabbitMqExchanges etc.) - the relay.ps1 started by the harness declares both exchanges via the management API BEFORE the runner runs, and the runner csproj does not reference QaaS.Common.Probes (FB s13#8 - an unreferenced probe crashes hook resolution).\n(3) get-egress-status: one Transaction http Host localhost Port 8272 Method Get Route order/z101-order-001/status (no leading slash, all lowercase) with DataSourceNames [OrderData] and TimeoutMs 5000; Assertions HttpStatus StatusCode 200 OutputNames [get-egress-out] and HermeticByExpectedOutputCount ExpectedCount 1.\n\nRunner/TestData/order.json: a valid JSON payload representing an order, e.g. {\"orderId\":\"z101-order-001\",\"product\":\"widget\",\"quantity\":1}.",
+      "verify": [
+        {
+          "cmd": "Test-Path z101.mocker.yaml",
+          "cwd": "Mocker",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path z101.mocker.yaml -Pattern '8271' -Quiet",
+          "cwd": "Mocker",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path z101.mocker.yaml -Pattern '8272' -Quiet",
+          "cwd": "Mocker",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path z101.mocker.yaml -Pattern 'ProcessorConfiguration' -Quiet",
+          "cwd": "Mocker",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path z101.runner.qaas.yaml -Pattern 'HermeticByExpectedOutputCount' -Quiet",
+          "cwd": "Runner",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path z101.runner.qaas.yaml -Pattern 'DataSourceNames' -Quiet",
+          "cwd": "Runner",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "Select-String -Path z101.runner.qaas.yaml -Pattern 'TimeoutMs' -Quiet",
+          "cwd": "Runner",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        }
+      ],
+      "acceptanceCriteria": [
+        "z101.mocker.yaml defines servers on ports 8271 and 8272",
+        "Stubs use ProcessorConfiguration key (not TransactionData)",
+        "Runner YAML has 3 sessions: post-ingress, queue-roundtrip (Publisher AND Consumer together so the consumer binds before publishing, FB s13#24), get-egress-status",
+        "Publisher (inside queue-roundtrip) has DataSourceNames list",
+        "Consumer (inside queue-roundtrip) has TimeoutMs: 30000",
+        "All output sets have HermeticByExpectedOutputCount guard",
+        "HttpStatus uses StatusCode and OutputNames list form"
+      ],
+      "rubric": [
+        "Mocker stub key is ProcessorConfiguration not TransactionData (FB s13#1)",
+        "Publisher has DataSourceNames list (FB s13#3)",
+        "Consumer has TimeoutMs 30000 (FB s13#13)",
+        "All three HTTP/Consumer output sets have HermeticByExpectedOutputCount (FB s13#12)",
+        "HttpStatus uses StatusCode + OutputNames list (FB s13#4)",
+        "Routes are lowercase without leading slash (FB s13#5, s13#5b)",
+        "Storages uses list-of-maps shape (FB s13#2)",
+        "Publisher and Consumer share ONE session (queue-roundtrip) per FB s13#24 bind-before-publish"
+      ],
+      "failureModes": [
+        "TransactionData key in mocker stub — silently ignored, stub body empty",
+        "Missing DataSourceNames on Publisher — FB s13#3 violation causes error",
+        "Missing TimeoutMs on Consumer — required field, runner rejects config",
+        "Leading slash on Route (e.g. /order) — double-slash causes 404",
+        "HttpStatus with ExpectedStatus/OutputName (old form) — rejected by runner",
+        "Missing HermeticByExpectedOutputCount on any session — vacuous pass risk",
+        "Consumer in its own later session binds after the relay forwarded - broker drops messages, 0 outputs (FB s13#24)"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-003",
+      "title": "Run template gates on runner and mocker YAML files",
+      "skill": "run-and-collect",
+      "priority": 3,
+      "dependsOn": [
+        "T-002"
+      ],
+      "factBaseSlices": [
+        "s06",
+        "s13",
+        "s02",
+        "s03"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [],
+        "edit": []
+      },
+      "description": "Validate both the runner YAML and mocker YAML pass their respective template/syntax gates using the dotnet run template command before attempting any live run. This catches schema errors, unknown field names, missing required fields (DataSourceNames, TimeoutMs), drift-column field name mistakes (TransactionData vs ProcessorConfiguration, ExpectedStatus vs StatusCode), and route double-slash issues early without needing live infrastructure. For the runner: run 'dotnet run -c Release -- template z101.runner.qaas.yaml' from Runner/ and verify exit code 0 with no 'not found in' error text. For the mocker: run 'dotnet run -c Release -- template z101.mocker.yaml' from Mocker/ (if the mocker supports a template command) or verify the build succeeds and the yaml parses. The template command is the canonical pre-flight gate that must pass before any live run attempt.",
+      "verify": [
+        {
+          "cmd": "dotnet run -c Release -- template z101.runner.qaas.yaml",
+          "expectExitCode": 0,
+          "expectOutputNotContains": "not found in",
+          "cwd": "Runner",
+          "timeoutSec": 300
+        },
+        {
+          "cmd": "dotnet build -c Release",
+          "expectExitCode": 0,
+          "cwd": "Mocker",
+          "timeoutSec": 300
+        }
+      ],
+      "acceptanceCriteria": [
+        "dotnet run -- template exits 0 for runner YAML",
+        "no 'not found in' error in template output",
+        "Mocker project builds cleanly"
+      ],
+      "rubric": [
+        "Runner template gate passes with exit 0",
+        "No unknown field errors in template output",
+        "Mocker project compiles without errors"
+      ],
+      "failureModes": [
+        "template exits non-zero due to unknown field name (drift violation)",
+        "template exits non-zero due to missing required DataSourceNames or TimeoutMs",
+        "Mocker build fails due to wrong NuGet package version"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    },
+    {
+      "id": "T-004",
+      "title": "Run live end-to-end: start mocker and relay, execute runner suite, stop both",
+      "skill": "run-and-collect",
+      "priority": 4,
+      "dependsOn": [
+        "T-003"
+      ],
+      "factBaseSlices": [
+        "s06",
+        "s07",
+        "s13",
+        "s02",
+        "s03"
+      ],
+      "docPages": [],
+      "files": {
+        "create": [
+          "Runner/RUN-REPORT.md"
+        ],
+        "edit": []
+      },
+      "description": "Execute the full end-to-end Z101 pipeline live. Sequence: (1) Start the mocker as a background process using Start-Process dotnet with -WorkingDirectory pointing to the Mocker/ folder resolved from Runner/ as ..\\Mocker; capture the process handle. (2) Start the relay bridge using Start-Process powershell invoking ..\\relay.ps1 with -InputExchange z101-input -OutputExchange z101-output -TimeoutSec 150; capture the process handle. The relay.ps1 uses the RabbitMQ management API at localhost:15672 with credentials admin:admin; it declares both exchanges and polls z101-input, forwarding messages to z101-output. (3) Wait 10 seconds for mocker and relay to become ready. (4) Run 'dotnet run -c Release -- run z101.runner.qaas.yaml' from Runner/ cwd; capture the exit code and verify the output contains ExitCode=0. (5) Stop the relay process using Stop-Process -Id with the captured PID; stop the mocker process the same way. (6) Exit with the captured runner exit code. Also write Runner/RUN-REPORT.md documenting: the exact commands used, expected boot sequence (mocker first then relay then runner), exchange names z101-input and z101-output, port assignments 8271 ingress and 8272 egress, expected log lines, and failure triage steps.",
+      "verify": [
+        {
+          "timeoutSec": 600,
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','z101.mocker.yaml' -WorkingDirectory (Resolve-Path ..\\Mocker) -PassThru; $r = Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','..\\relay.ps1','-InputExchange','z101-input','-OutputExchange','z101-output','-TimeoutSec','240' -PassThru; $ok=$false; foreach($i in 1..60){ try{ (New-Object Net.Sockets.TcpClient('127.0.0.1',8271)).Close(); (New-Object Net.Sockets.TcpClient('127.0.0.1',8272)).Close(); $ok=$true; break }catch{ Start-Sleep 2 } }; if(-not $ok){ Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; Stop-Process -Id $r.Id -Force -ErrorAction SilentlyContinue; Write-Host 'MOCKER PORTS NEVER BOUND'; exit 9 }; dotnet run -c Release -- run z101.runner.qaas.yaml; $code=$LASTEXITCODE; Stop-Process -Id $r.Id -Force -ErrorAction SilentlyContinue; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "cwd": "Runner",
+          "expectExitCode": 0,
+          "expectOutputContains": "ExitCode=0"
+        },
+        {
+          "timeoutSec": 60,
+          "cmd": "Test-Path RUN-REPORT.md",
+          "cwd": "Runner",
+          "expectOutputContains": "True"
+        }
+      ],
+      "acceptanceCriteria": [
+        "runner exits 0 with ExitCode=0 in output",
+        "mocker serves ingress POST /order returning 202 and egress GET /order/{id}/status returning 200",
+        "relay.ps1 bridges z101-input to z101-output successfully",
+        "all three sessions (post-ingress, queue-roundtrip, get-egress-status) complete with their respective assertions passing",
+        "Runner/RUN-REPORT.md exists documenting the run"
+      ],
+      "rubric": [
+        "Mocker started before relay and runner — correct boot order",
+        "relay.ps1 called with z101-input and z101-output exchange names",
+        "Runner exits with ExitCode=0 in output",
+        "Stop-Process cleans up both mocker and relay PIDs",
+        "RUN-REPORT.md documents commands and expected log lines"
+      ],
+      "failureModes": [
+        "Starting runner before mocker is ready — connection refused on 8271 or 8272",
+        "Wrong exchange names (not z101-input / z101-output) — relay never relays",
+        "relay.ps1 not found — wrong path from Runner cwd",
+        "Mocker process not stopped — port 8271 or 8272 busy on next run",
+        "Stop-Process by name instead of PID — kills wrong or all dotnet processes"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ]
+}

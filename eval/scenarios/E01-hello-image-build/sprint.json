@@ -1,0 +1,77 @@
+{
+  "sprintId": "E01",
+  "feature": "Package the hello mocker as a container image",
+  "goalOneSentence": "Author Dockerfile, .dockerignore and BUILD.md so the seeded Hello mocker builds into an image that serves /hello on container port 8080, proven by a live docker build + run + curl.",
+  "nonGoals": [
+    "changing the mocker YAML or C#",
+    "compose files",
+    "registry push"
+  ],
+  "factBaseSlices": [
+    "s00",
+    "s07",
+    "s12",
+    "s13"
+  ],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Author Dockerfile + .dockerignore + BUILD.md for the Hello mocker",
+      "priority": 1,
+      "dependsOn": [],
+      "skill": "build-mocker-image",
+      "files": {
+        "create": [
+          "Dockerfile",
+          ".dockerignore",
+          "BUILD.md"
+        ],
+        "edit": []
+      },
+      "description": "The working directory contains Hello/ — a complete, working QaaS mocker project (Hello.csproj referencing QaaS.Mocker + QaaS.Common.Processors Version=\"*\"; one-line Program.cs 'QaaS.Mocker.Bootstrap.New(args).Run();'; hello.mocker.yaml serving GET /hello -> 200 'hello' on Port 8080). Do NOT modify anything under Hello/. Create at the working-directory ROOT: (1) Dockerfile — multi-stage: stage 1 'FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build', WORKDIR /src, COPY . ., RUN dotnet restore Hello/Hello.csproj, RUN dotnet publish Hello/Hello.csproj -c Release -o /app/publish --no-restore; stage 2 'FROM mcr.microsoft.com/dotnet/aspnet:10.0' (CRITICAL: aspnet, NOT runtime — the mocker hosts an HTTP server and the runtime image fails at startup, fact base s13 row 7), WORKDIR /app, COPY --from=build /app/publish ., ENTRYPOINT [\"dotnet\", \"Hello.dll\", \"hello.mocker.yaml\"] (exec-form JSON array; the yaml argument is the mocker config — it was copied to output because the csproj marks it CopyToOutputDirectory Always). (2) .dockerignore with at least bin/, obj/, *.md. (3) BUILD.md documenting exactly: build command 'docker build -t qaas-hello-mocker .', run command 'docker run -d --name hello-mocker -p 8094:8080 qaas-hello-mocker', smoke check 'curl http://127.0.0.1:8094/hello' expecting body 'hello', cleanup 'docker rm -f hello-mocker', plus one sentence on why the final base image must be aspnet:10.0 citing s13#7. The verify gate runs the real docker build and a live curl through host port 8094.",
+      "acceptanceCriteria": [
+        "docker build succeeds from the working-directory root",
+        "Container runs detached and answers 'hello' on mapped host port 8094",
+        "Final stage uses mcr.microsoft.com/dotnet/aspnet:10.0 and BUILD.md cites s13#7"
+      ],
+      "factBaseSlices": [
+        "s07",
+        "s12",
+        "s13"
+      ],
+      "docPages": [],
+      "verify": [
+        {
+          "cmd": "Select-String -Path Dockerfile -Pattern 'aspnet:10.0' -Quiet",
+          "expectOutputContains": "True",
+          "timeoutSec": 60
+        },
+        {
+          "cmd": "docker build -t qaas-eval-e01 .",
+          "expectExitCode": 0,
+          "timeoutSec": 1200
+        },
+        {
+          "cmd": "docker rm -f qaas-eval-e01 2>$null; docker run -d --name qaas-eval-e01 -p 8094:8080 qaas-eval-e01; $body=''; foreach($i in 1..30){ try { $body = (Invoke-WebRequest -Uri http://127.0.0.1:8094/hello -UseBasicParsing -TimeoutSec 2).Content; break } catch { Start-Sleep -Seconds 1 } }; docker rm -f qaas-eval-e01 | Out-Null; if($body -eq 'hello'){ Write-Output 'CURL_OK hello'; exit 0 } else { Write-Output \"CURL_FAIL body=$body\"; exit 1 }",
+          "expectExitCode": 0,
+          "expectOutputContains": "CURL_OK",
+          "timeoutSec": 600
+        }
+      ],
+      "rubric": [
+        "Dockerfile is multi-stage with publish output only in the final image",
+        "ENTRYPOINT exec-form passes the yaml config argument",
+        "BUILD.md commands are copy-pasteable and correct"
+      ],
+      "failureModes": [
+        "FROM mcr.microsoft.com/dotnet/runtime:10.0 in the final stage (s13#7 — boots then dies)",
+        "ENTRYPOINT missing the hello.mocker.yaml argument (mocker has no config to load)",
+        "COPY of project subfolder paths that do not match the build context layout"
+      ],
+      "passes": false,
+      "iterations": 0,
+      "notes": ""
+    }
+  ],
+  "portContract": "This sprint's mocker(s) MUST listen on HTTP port 8094. Every runner Transaction MUST target http://127.0.0.1:8094 (set the mocker server Port: 8094 and the runner BaseAddress/Port to 8094). Do NOT use the 8080 default from Fact Base examples - use 8094 exactly, or the live end-to-end run cannot connect."
+}

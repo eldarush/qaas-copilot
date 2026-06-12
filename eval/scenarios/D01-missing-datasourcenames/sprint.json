@@ -1,0 +1,67 @@
+{
+  "tasks": [
+    {
+      "dependsOn": [],
+      "id": "T-001",
+      "notes": "",
+      "factBaseSlices": [
+        "s06",
+        "s10",
+        "s13",
+        "s02"
+      ],
+      "files": {
+        "create": [
+          "DIAGNOSIS.md"
+        ],
+        "edit": [
+          "Runner/test.qaas.yaml"
+        ]
+      },
+      "title": "Diagnose, repair and verify the suite",
+      "skill": "diagnose-failure",
+      "docPages": [],
+      "description": "The end-to-end suite fails: the HermeticByExpectedOutputCount guard reports 0 outputs (the transaction never executed). The fault is a single trap (s13#3) in Runner/test.qaas.yaml: the Http transaction 'Trans1' has no DataSourceNames, so it is never driven by any data row and produces zero outputs. Reproduce the failure, apply the MINIMAL fix to Runner/test.qaas.yaml (add 'DataSourceNames: [DummyDS]' to the Trans1 transaction - change nothing else; do NOT rewrite the file, rename anything, or touch the mocker), write DIAGNOSIS.md citing s13#3 explicitly, and run the e2e verify gate.",
+      "priority": 1,
+      "rubric": [
+        "Diagnosis is complete and references the exact trap"
+      ],
+      "verify": [
+        {
+          "timeoutSec": 60,
+          "cmd": "Select-String -Path DIAGNOSIS.md -Pattern 's13#3' -Quiet",
+          "expectOutputContains": "True"
+        },
+        {
+          "cwd": "Runner",
+          "cmd": "$m = Start-Process dotnet -ArgumentList 'run','-c','Release','--','run','test.mocker.yaml' -WorkingDirectory '..\\Mocker' -PassThru; $ok = $false; foreach ($i in 1..40) { try { (New-Object Net.Sockets.TcpClient('127.0.0.1', 8119)).Close(); $ok = $true; break } catch { Start-Sleep 2 } }; if (-not $ok) { Stop-Process -Id $m.Id -Force; exit 9 }; dotnet run -c Release -- run test.qaas.yaml; $code = $LASTEXITCODE; Stop-Process -Id $m.Id -Force -ErrorAction SilentlyContinue; exit $code",
+          "expectExitCode": 0,
+          "timeoutSec": 600
+        }
+      ],
+      "iterations": 0,
+      "acceptanceCriteria": [
+        "DIAGNOSIS.md cites s13#3",
+        "E2E runs successfully green (guard sees exactly 1 output)"
+      ],
+      "passes": false,
+      "failureModes": [
+        "Renaming the route or stub",
+        "Removing the guard instead of adding DataSourceNames"
+      ]
+    }
+  ],
+  "sprintId": "D01",
+  "factBaseSlices": [
+    "s06",
+    "s10",
+    "s13"
+  ],
+  "goalOneSentence": "Diagnose and fix missing-DataSourceNames caused by trap s13#3.",
+  "nonGoals": [
+    "rewriting docker files",
+    "editing the mocker"
+  ],
+  "feature": "missing-datasourcenames",
+  "portContract": "This sprint's mocker MUST listen on HTTP port 8119. Every runner Transaction MUST target http://127.0.0.1:8119. Do NOT use the 8080 default from Fact Base examples - use 8119 exactly."
+}
