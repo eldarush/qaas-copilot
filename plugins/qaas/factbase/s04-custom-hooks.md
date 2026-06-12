@@ -23,6 +23,10 @@ public override void Run(
 // QaaS.Framework.SDK.Hooks.Processor  (BaseTransactionProcessor; MOCKER hook — project must reference QaaS.Mocker)
 public override Data<object> Process(
     IImmutableList<DataSource> dataSourceList, Data<object> requestData)
+// Body contract [LAB H132, s13#25]: requestData.Body = raw byte[] (UTF-8 request bytes) —
+// decode with Encoding.UTF8.GetString((byte[])requestData.Body). Returned Data<object>.Body
+// MUST be byte[] (JsonSerializer.SerializeToUtf8Bytes / "OK"u8.ToArray()) else the stub throws
+// "output is not byte[] for response payload" → 500 with empty body.
 ```
 
 ### Config record rules [LAB L4, 08]
@@ -43,6 +47,10 @@ public override Data<object> Process(
   filename; runner rejects duplicate paths in one result.
 - Helpers (`QaaS.Framework.SDK.Extensions`): `sessionDataList.AsSingle()`, `.GetOutputByName(name)`,
   `.CastCommunicationData<JsonArray>()` → typed `.Data[].Body`. [LAB]
+- **Output item type under `OutputDeserialize: Json` is the `System.Text.Json.Nodes` family**
+  (`JsonObject`/`JsonArray`/`JsonValue`), NOT `JsonElement` — casting to `JsonElement` goes BROKEN
+  (`Failed to cast data item ...`). Use `CastCommunicationData<JsonObject>()` and read with
+  `item.Body["field"]!.GetValue<string>()`. [LAB H132, s13#27]
 
 ### Namespaces (all transitive via QaaS.Runner) [LAB]
 ```

@@ -75,7 +75,8 @@ inherited abstract member 'Assert(...)'` (the override signature can't resolve).
 using System;
 using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;   // [Required]
-using System.Text.Json;                         // JsonElement / JsonDocument (JSON assertions)
+using System.Text.Json;                         // JsonSerializer / JsonDocument
+using System.Text.Json.Nodes;                   // JsonObject / JsonArray — output Body type under OutputDeserialize: Json (s13#27)
 using QaaS.Framework.SDK.Hooks.Assertion;       // BaseAssertion<T>  (or .Generator / .Probe — processor uses .Processor, see §4)
 using QaaS.Framework.SDK.Session.DataObjects;        // Data<T>
 using QaaS.Framework.SDK.Session.SessionDataObjects; // SessionData   ← SEPARATE namespace, REQUIRED
@@ -118,11 +119,14 @@ public sealed class LengthAssertion : BaseAssertion<LengthConfig>
 }
 ```
 
-**Reading a JSON field from an HTTP response body** (very common). The body is **typed** by
-`CastCommunicationData<JsonElement>()`; each `comm.Data[i].Body` is a `JsonElement` **struct**.
-Use `TryGetProperty` / `ValueKind` / `GetString()`. **Never** apply `?.` to it (`CS0023`) and
-**never** pattern-match it against `byte[]` or `string` (`CS8121`) — those are the classic traps.
+**Reading a JSON field from an HTTP response body** (very common). LAB-VERIFIED (s13#27): with
+`OutputDeserialize: Json` each output `comm.Data[i].Body` is a **`System.Text.Json.Nodes`** value
+(`JsonObject`/`JsonArray`/`JsonValue`) — `CastCommunicationData<JsonElement>()` goes **BROKEN** at
+run time (`Failed to cast data item ... to type System.Text.Json.JsonElement`). Cast to
+`JsonObject` (object roots) or `JsonArray` and read via the indexer + `GetValue<T>()`:
 ```csharp
+using System.Text.Json.Nodes;                        // JsonObject / JsonNode
+
 public sealed class JsonFieldAssertion : BaseAssertion<JsonFieldConfig>
 {
     public override bool Assert(
@@ -131,19 +135,20 @@ public sealed class JsonFieldAssertion : BaseAssertion<JsonFieldConfig>
     {
         var comm = sessionDataList.AsSingle()
                        .GetOutputByName(Configuration!.OutputName!)
-                       .CastCommunicationData<JsonElement>();
+                       .CastCommunicationData<JsonObject>();   // JsonNode family, NOT JsonElement (s13#27)
         if (comm == null || comm.Data.Count == 0)        // hermetic guard: no outputs → fail, don't throw
         {
             AssertionMessage = "No outputs for " + Configuration.OutputName;
             return false;
         }
-        JsonElement root = comm.Data[0].Body;            // struct — no ?. , no `is byte[]`/`is string`
-        if (!root.TryGetProperty(Configuration!.JsonField!, out JsonElement prop))
+        JsonObject root = comm.Data[0].Body;
+        JsonNode? prop = root[Configuration!.JsonField!];
+        if (prop is null)
         {
             AssertionMessage = $"Field '{Configuration.JsonField}' missing";
             return false;
         }
-        string? actual = prop.ValueKind == JsonValueKind.String ? prop.GetString() : prop.ToString();
+        string actual = prop.GetValue<string>();
         AssertionMessage = $"{Configuration.JsonField}='{actual}' expected '{Configuration.ExpectedValue}'";
         return string.Equals(actual, Configuration.ExpectedValue, StringComparison.Ordinal);
     }
@@ -184,8 +189,13 @@ public class HealthProcessor : BaseTransactionProcessor<object>   // use `object
 }
 ```
 Processor instances are **shared across requests** — no mutable per-request state (FB s04, LAB L5).
-Read request bytes via `requestData.Body`; pull seeded responses via
-`dataSourceList.GetDataSourceByName("X").Retrieve()`.
+**Body contract (LAB, s13#25): `requestData.Body` is raw `byte[]`** (UTF-8 request bytes) — decode
+with `Encoding.UTF8.GetString((byte[])requestData.Body)`; never `JsonSerializer.Serialize` a
+`byte[]` (silent base64 → JSON *string* node). **The returned `Data<object>.Body` MUST be `byte[]`**
+(`JsonSerializer.SerializeToUtf8Bytes(...)` / `"OK"u8.ToArray()`) — anything else throws
+`Transaction Stub 'X' output is not byte[] for response payload` → 500 with an EMPTY body, which the
+runner's `OutputDeserialize: Json` reports as `JsonReaderException: The input does not contain any JSON tokens`.
+Pull seeded responses via `dataSourceList.GetDataSourceByName("X").Retrieve()`.
 
 ### 5. YAML wiring (simple class name — FB s04, LAB L4)
 ```yaml
@@ -233,7 +243,10 @@ See references/namespaces.md.
 | Processor mutates instance field | Instances shared; use only local variables or static (FB s04) |
 | Hook assembly not referenced | Add as ProjectReference or QaaS.Common.* PackageReference (FB s13#8) |
 | `CS0246 SessionData not found` + `CS0534 does not implement Assert(...)` | Add **both** `using ...Session.DataObjects;` (Data<T>) **and** `using ...Session.SessionDataObjects;` (SessionData). Missing the second breaks the override signature (FB s04) |
-| `CS8121` / `CS0023` on a JSON body | `comm.Data[i].Body` from `CastCommunicationData<JsonElement>()` is a `JsonElement` **struct**: use `TryGetProperty`/`ValueKind`/`GetString()`; never `?.`, never `is byte[]`/`is string` (FB s04) |
+| `CS8121` / `CS0023` on a JSON body | `comm.Data[i].Body` is strongly typed by the cast — never apply `?.` to a struct, never pattern-match against `byte[]`/`string` (FB s04) |
+| BROKEN: `Failed to cast data item ... to type System.Text.Json.JsonElement` | With `OutputDeserialize: Json` outputs are `System.Text.Json.Nodes` values — use `CastCommunicationData<JsonObject>()` / `<JsonArray>()` + indexer + `GetValue<T>()`, NOT `JsonElement` (FB s13#27) |
+| Mocker 500 + `output is not byte[] for response payload` | Processor returned a non-`byte[]` Body — return `JsonSerializer.SerializeToUtf8Bytes(...)` (FB s13#25) |
+| Processor `GetProperty` throws `requires ... 'Object', but ... 'String'` | You `JsonSerializer.Serialize`d the `byte[]` request body (silent base64). Decode with `Encoding.UTF8.GetString((byte[])requestData.Body)` (FB s13#25) |
 | `CS0246 BaseTransactionProcessor not found` (or `MetaData`/`Http`) | Processor is a **mocker** hook: project must reference `QaaS.Mocker`; use `using QaaS.Framework.SDK.Hooks.Processor;` (base) **and** `using QaaS.Framework.SDK.Session.MetaDataObjects;` (MetaData/Http). It will not resolve in a runner-only project (FB s04, s14#5) |
 
 ## Citations

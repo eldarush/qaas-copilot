@@ -3,17 +3,18 @@
   "owner": { "name": "eldarush" },
   "metadata": {
     "description": "QaaS Copilot for Claude Code — 20 skills, 4 subagents, offline Fact Base (s00–s16), and airgap-safe docs fetch.",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "plugins": [
     {
       "name": "qaas",
       "source": "./plugins/qaas",
       "description": "Plan, write, run, and debug QaaS Runner/Mocker tests and custom hooks using only the QaaS docs. 20 skills including SUT repo/Helm/K8s analysis and 4 subagents. Airgap-ready and docs-backed.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "testing",
       "tags": ["qaas", "integration-testing", "airgap", "mocker", "runner"]
     }
   ]
 }
+
 

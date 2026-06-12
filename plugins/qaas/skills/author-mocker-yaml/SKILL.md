@@ -28,6 +28,7 @@ contract:
     - "IsLocalhost:true in container → binds 127.0.0.1 only, unreachable from host (FB s03)"
     - "Missing QaaS.Common.Processors reference → FTL + exit -532462766 (FB s13#8)"
     - "Controller.ServerName mismatch with Runner MockerCommands.ServerName (FB s03)"
+    - "Name: key invented on Servers/Endpoints entries → silently ignored WRN (FB s13#21); only Actions and Stubs are named"
   escalation: "NEEDS_CLARIFICATION: <field> | BLOCKED: <reason>"
 ---
 
@@ -51,6 +52,10 @@ Servers:
               TransactionStubName: HelloStub
 ```
 - `Path` on Endpoints uses a leading slash; `Route` in runner YAML does NOT (FB s13#5).
+- **NO `Name:` on server or endpoint entries** — ServerConfig/HttpEndpointConfig have no Name
+  property; an invented `Name:` emits `Property Name ... not found in ServerConfig object` and is
+  silently ignored (FB s13#21). A server entry begins directly with `Http:`; an endpoint begins
+  with `Path:`. Only `Actions[].Name` and `Stubs[].Name` exist.
 - **Routes must be all-lowercase** on BOTH the mocker `Path:` and the runner `Route:` — the mocker lowercases the configured `Path` then matches the request path case-sensitively, so `Path: /myRoute` + `Route: myRoute` → 404 (FB s13#5b).
 - Each endpoint Action links to a Stub via `TransactionStubName`.
 

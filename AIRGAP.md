@@ -79,7 +79,7 @@ the full offline Fact Base, so it works even when the docs server is unreachable
 
 ### 2.3 What you get natively in Claude Code
 
-* The **QaaS Test-Authoring Constitution** and **19 doc-drift traps** auto-load every session
+* The **QaaS Test-Authoring Constitution** and **29 doc-drift traps** auto-load every session
   (via the `qaas-overview` skill + SessionStart hook) — so common schema mistakes never happen.
 * **19 task skills** invoked automatically by description (plan, analyze SUT repos / Helm /
   existing tests, scaffold, author YAML, hooks, run, diagnose, build mocker images, offline
@@ -234,3 +234,4 @@ them:
 * **Resolution**: Always pair status/content assertions with a hermetic output-count guard
   (`HermeticByExpectedOutputCount` or `HermeticByInputOutputPercentage`) via the
   `pick-assertion` skill.
+

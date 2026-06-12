@@ -99,8 +99,8 @@ run `validate-compatibility` before authoring any file. Never guess.
 `DONE` | `DONE_WITH_CONCERNS: <note>` | `BLOCKED: <reason>` | `NEEDS_CONTEXT: <what>` | `NEEDS_CLARIFICATION: <what>`
 
 > These are the most common. The full LAB-verified table is the offline Fact Base **§13
-> (`s13-doc-drift.md`) — 19 entries** (incl. Docker base-image, Dockerfile inline-comment, and
-> docker-compose internal-dependency-port traps). Read it via `/qaas:fact 13` when you need the rest.
+> (`s13-doc-drift.md`) — 29 entries** (incl. Docker base-image, mocker processor byte[] Body,
+> RabbitMQ consumer ExchangeName, and docker-compose internal-dependency-port traps). Read it via `/qaas:fact 13` when you need the rest.
 
 | # | Topic | Docs say (OUTDATED) | Reality (USE THIS) |
 |---|---|---|---|

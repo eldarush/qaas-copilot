@@ -43,8 +43,16 @@ DataSources:
     Generator: FromFileSystem
     GeneratorConfiguration:
       DataArrangeOrder: AsciiAsc
-      FileSystem: { Path: TestData }
+      FileSystem: { Path: TestData/orders }
 ```
+- **The file filter is `SearchPattern` inside `FileSystem:`** (`FileSystem: {Path: TestData,
+  SearchPattern: '*.csv'}`) — LAB-verified at template AND runtime. There is NO `Pattern` key
+  (warns `not found`, silently ignored → generator reads ALL files under `Path`, s13#20).
+  Subfolder-per-DataSource also works and keeps layouts obvious.
+- **Sending a JSON file's content over HTTP**: FromFileSystem items carry raw file `byte[]`;
+  `InputSerialize: Json` would base64-wrap them into a quoted JSON string on the wire (s13#26).
+  Add DataSource-level `Deserialize: {Deserializer: Json}` (DataSourceBuilder: `Serialize` XOR
+  `Deserialize`) so the bytes decode to a JSON node and the wire body is the real JSON object. [LAB H132]
 
 ### 2.6 Sessions (docs .../sessions/**)
 Session-level fields: `Name`(req), `Category`(filter via `-I`), `Stage`(default=array index),
@@ -73,6 +81,7 @@ Parallel{Parallelism}. (04)
 Protocols (11): RabbitMq, KafkaTopic, Redis, MsSqlTable, PostgreSqlTable, OracleSqlTable,
 MongoDbCollection, ElasticIndex, S3Bucket, Socket, Sftp. (key fields → §4-sessions notes; e.g.
 RabbitMq: Host req, Port 5672, Username/Password "admin", ExchangeName/QueueName, RoutingKey "/").
+NOTE: Consumers ALWAYS need ExchangeName — QueueName alone binds to the default exchange → ACCESS_REFUSED (s13#28).
 
 #### Consumers (Sessions[].Consumers[]) — creates an Output
 Fields: Name(req), **TimeoutMs(req)** = time since last message read; InitialTimeoutMs(before first
@@ -80,6 +89,9 @@ msg), Stage(0), Policies, DataFilter, Deserialize{Deserializer,SpecificType}. (0
 Protocols (10): RabbitMq, KafkaTopic, MsSqlTable, PostgreSqlTable, OracleSqlTable, TrinoSqlTable,
 ElasticIndices, S3Bucket, Socket, IbmMqQueue.
 - Consumer timeout must exceed expected async processing time, else flaky/empty output.
+- **Bind-before-publish (s13#24):** messages published before the consumer binds are DROPPED.
+  Keep Publisher+Consumer in the SAME session (Consumers=0 binds before Publishers=1); a Consumer
+  in a later session gets 0 outputs unless a durable queue+binding pre-exists (Stage-0 probes).
 
 #### Transactions (Sessions[].Transactions[]) — creates Input + Output
 Fields: Name(req), **TimeoutMs(req)**, Iterations(1), Loop(false), SleepTimeMs(0), Stage(2),

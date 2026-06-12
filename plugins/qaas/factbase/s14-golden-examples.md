@@ -197,6 +197,10 @@ public class HealthProcessor : BaseTransactionProcessor<object>   // no-config p
 }
 // Wire: Stubs: - Name: HealthStub / Processor: HealthProcessor / ProcessorConfiguration: {}
 ```
+**Body contract (LAB H132, s13#25)**: `requestData.Body` arrives as raw `byte[]` — read JSON with
+`string reqJson = Encoding.UTF8.GetString((byte[])requestData.Body);` (NEVER `JsonSerializer.Serialize`
+the byte[] — silent base64). The returned `Body` MUST be `byte[]`: use
+`JsonSerializer.SerializeToUtf8Bytes(new { ... })` for JSON responses.
 
 ### 14.6 Dockerfile for a custom mocker image (aspnet fix) [LAB L5]
 ```dockerfile

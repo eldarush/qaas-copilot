@@ -48,7 +48,7 @@ Every code change or test written must adhere to these non-negotiable articles:
 
 ## 3. Doc-Drift & Outdated Docs Reference (Top Traps)
 
-> The complete, authoritative drift table lives in the Fact Base, **§13 (`plugins/qaas/factbase/s13-doc-drift.md`) — 19 LAB-verified entries**. The most common ones are reproduced here.
+> The complete, authoritative drift table lives in the Fact Base, **§13 (`plugins/qaas/factbase/s13-doc-drift.md`) — 29 LAB-verified entries**. The most common ones are reproduced here.
 
 Use this table as your source of truth when writing configurations:
 
@@ -104,3 +104,4 @@ an execution blueprint, done-rubric, and failure-mode checklist:
 * **C# Records**: Custom configuration types should use immutable records with required properties.
 * **Hermetic Runs**: Use unique port mappings and dynamic ports to prevent execution conflicts.
 * **Deterministic Tests**: Add delay offsets or check-retry mechanisms for async messaging tests rather than simple Sleep statements.
+

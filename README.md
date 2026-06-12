@@ -8,7 +8,7 @@ hooks, run and debug tests, diagnose failures, and build custom mocker Docker im
 
 Every QaaS fact in this plugin was **verified by actually running QaaS** (real NuGets, real
 Docker brokers, real green/red runs), not just read from docs. Where the docs are wrong, the
-bundled Fact Base says so explicitly — **19 documented doc-drift traps**.
+bundled Fact Base says so explicitly — **29 documented doc-drift traps**.
 
 > **One knob.** The only thing you configure for a new environment is `QAAS_DOCS_URL`.
 > Everything else — 20 skills, 4 subagents, 5 commands, the full offline Fact Base — ships
@@ -39,7 +39,7 @@ Full walkthrough, verification, and update/uninstall: **[INSTALL.md](./INSTALL.m
 
 | Surface | What it does |
 |---|---|
-| **Auto-loaded expertise** | `qaas-overview` skill loads each session: constitution, the 19 drift traps, and the skill index |
+| **Auto-loaded expertise** | `qaas-overview` skill loads each session: constitution, the 29 drift traps, and the skill index |
 | **19 task skills** | model-invoked by description (see table below) |
 | **4 subagents** | `qaas-planner` (plan + contract), `qaas-test-author` (implement + verify), `qaas-debugger` (root-cause), `qaas-analyst` (read-only SUT/chart/test analysis) |
 | `/qaas:docs <path>` | fetch a live docs page over **curl** from `$QAAS_DOCS_URL` (airgap-safe, no WebFetch) |
@@ -139,3 +139,4 @@ research):
 
 The plugin under `plugins/qaas/` is fully self-contained (skills + Fact Base), so it works
 when Claude Code copies it into its plugin cache.
+

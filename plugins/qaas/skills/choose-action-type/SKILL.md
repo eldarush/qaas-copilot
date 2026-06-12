@@ -47,7 +47,7 @@ below, then cite that row in your output.
 
 | Protocol | Key config fields |
 |---|---|
-| RabbitMq | Host, Port(5672), Username, Password, ExchangeName, QueueName, RoutingKey("/") |
+| RabbitMq | Host, Port(5672), Username, Password, ExchangeName, QueueName, RoutingKey("/") — Consumers MUST set ExchangeName; QueueName alone → bind on default exchange → ACCESS_REFUSED (FB s13#28) |
 | KafkaTopic | (see docs) |
 | Redis | (see docs) |
 | MsSqlTable | (see docs) |

@@ -127,7 +127,8 @@ NOT_FOUND: <field> — no citation found; emitting NEEDS_CLARIFICATION
 
 ## Citations
 
-- FB s13 (all 19 drift rows — the complete compatibility source of truth)
+- FB s13 (all 29 drift rows — the complete compatibility source of truth)
 - FB s14 (golden examples — authoritative schema shapes)
 - FB s00 (index — all slice ids)
 - `template` verb (schema oracle at runtime — overrides docs)
+

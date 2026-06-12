@@ -51,7 +51,12 @@ TRAPS the validator enforces (FTL → exit non-zero): a stub MUST have `Processo
 field is required`); routing is ONLY via `Servers…Endpoints…Actions…TransactionStubName` — a
 stub-level `Route:` is rejected (`Property Route … not found in TransactionStubConfig`); do NOT nest
 `ProcessorType`/`Configuration` inside `ProcessorConfiguration` (put `Processor:` at stub level and
-the response fields directly under `ProcessorConfiguration`).
+the response fields directly under `ProcessorConfiguration`); server and endpoint entries have **NO
+`Name:` property** (ServerConfig/HttpEndpointConfig reject it — a server entry begins directly with
+`Http:`, an endpoint with `Path:`/`Actions:`; only Actions and Stubs are named — s13#21).
+Runner-side control plane: the full `MockerCommands[]` schema (required `Command`, `Redis`,
+`ServerName`, plus ChangeActionStub/TriggerAction/Consume command shapes) lives in **s02
+§MockerCommands** — read it before authoring any controller-driven session.
 
 ---
 

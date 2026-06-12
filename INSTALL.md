@@ -82,7 +82,7 @@ bundled inside the plugin and needs no network. `QAAS_DOCS_URL` defaults to
 
 | Capability | How it shows up in Claude Code |
 |---|---|
-| Always-on QaaS expertise | `qaas-overview` skill auto-loads each session (constitution + 19 drift traps + skill index) |
+| Always-on QaaS expertise | `qaas-overview` skill auto-loads each session (constitution + 29 drift traps + skill index) |
 | 19 task skills | model-invoked by description: plan, scaffold, author YAML, pick generators/assertions, author hooks, run, diagnose, build mocker images, offline packaging, verify-done, validate-compatibility, analyze SUT repos/charts/tests, document test projects |
 | 4 subagents | `qaas-planner`, `qaas-test-author`, `qaas-debugger`, `qaas-analyst` |
 | `/qaas:docs <path>` | fetch a live docs page over `curl` from `$QAAS_DOCS_URL` |
@@ -128,3 +128,4 @@ core; fix `QAAS_DOCS_URL` when convenient.)
   behind corporate proxies and on airgapped LANs with an internal mirror.
 - **NuGet / Docker / model endpoints** are environment concerns, not plugin concerns — see
   [AIRGAP.md](./AIRGAP.md) for the offline NuGet feed, base images, and local-model gateway.
+

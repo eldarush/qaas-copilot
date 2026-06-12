@@ -79,9 +79,18 @@ DataSources:
     Generator: FromFileSystem    # simple class name (FB s00)
     GeneratorConfiguration:
       DataArrangeOrder: AsciiAsc   # RECOMMENDED ordering
-      FileSystem: { Path: TestData }
+      FileSystem: { Path: TestData/orders }
 ```
 
+A DataSource entry has ONLY `Name`/`Generator`/`GeneratorConfiguration` (+ optional `Serialize`
+XOR `Deserialize`) — there are NO `Type:` or `Path:` keys at the entry level (FB s13#22;
+`Generator` is REQUIRED, FTL exit 1 if missing).
+The file filter is **`SearchPattern` inside `FileSystem:`** — `FileSystem: {Path: TestData,
+SearchPattern: '*.csv'}` (LAB-verified). There is NO `Pattern` key: it warns `not found`, is
+ignored, and the generator reads ALL files under `Path` (FB s13#20). Subfolder-per-DataSource
+(`TestData/<name>/payload.json`) also works and keeps layouts obvious.
+Sending a JSON file over HTTP? Add DataSource-level `Deserialize: {Deserializer: Json}` or the
+wire body becomes a base64-quoted string instead of your JSON (FB s13#26).
 Use `pick-generator` skill to choose among the 11 generators (FB s10).
 Add `QaaS.Common.Generators` PackageReference for any built-in generator (FB s13#8).
 
@@ -99,6 +108,13 @@ exchanges/queues. If they don't pre-exist you get `NOT_FOUND - no exchange '<nam
 already creates it. **Any probe REQUIRES `<PackageReference Include="QaaS.Common.Probes" Version="1.5.1" />`
 in the Runner `.csproj` (FB s13#8)** — it is commented out by default; add it (or scaffold with it as
 look-ahead) or the run crashes at hook resolution with Autofac `exit -532462766`, not a YAML error.
+
+**Consumer placement (FB s13#24):** messages published to an exchange BEFORE the consumer binds
+are DROPPED by the broker. Put the Publisher and its Consumer in the **SAME session** — the
+default action stages (Consumers=0, Publishers=1) make the consumer bind first. A Consumer in a
+later session binds after the messages already flowed → `Output Source <name> Contains 0 Outputs`.
+If they must be in separate sessions, pre-create a durable queue + binding at Stage 0
+(`CreateRabbitMqQueues` + `CreateRabbitMqBindings`) and consume from that queue.
 
 **Transactions REQUIRE `DataSourceNames` or `DataSourcePatterns` (FB s13#3):**
 ```yaml
@@ -203,3 +219,4 @@ dotnet run -- run <cfg>.qaas.yaml        # exit matches scenario (0=all pass, 1=
 | s13#13 | HttpStatus passes vacuously with 0 outputs | Always add hermetic count guard |
 | s13#8 | Built-in hook family not in csproj | Add `QaaS.Common.Generators/Assertions` explicitly |
 | s13#17 | Rabbit Publisher/Consumer `NOT_FOUND - no exchange` | Declare topology first via `CreateRabbitMqExchanges`/`CreateRabbitMqQueues` Probe at `Stage: 0` (FB s11 §11.1) |
+| s13#24 | Consumer in a later session gets 0 outputs | Same session as the Publisher (Consumers=0 binds first), or pre-create durable queue+binding at Stage 0 |

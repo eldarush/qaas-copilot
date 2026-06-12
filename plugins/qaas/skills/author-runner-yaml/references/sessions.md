@@ -25,7 +25,8 @@ Creates an **Input** named after the publisher.
 MongoDbCollection, ElasticIndex, S3Bucket, Socket, Sftp.
 
 RabbitMq key fields: `Host` (req), `Port` (5672), `Username` ("admin"), `Password` ("admin"),
-`ExchangeName`, `QueueName`, `RoutingKey` ("/").
+`ExchangeName`, `QueueName`, `RoutingKey` ("/"). Consumers MUST set `ExchangeName` —
+`QueueName` alone makes the runner bind on the DEFAULT exchange → `ACCESS_REFUSED` (FB s13#28).
 
 ## Consumers (FB s02 §2.6)
 
